@@ -34,6 +34,7 @@
 
 #ifdef __GNUC__
 #include <cmath>
+#include <memory>
 #define WINAPI_LAMBDA WINAPI
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -389,6 +390,50 @@ namespace NppDarkMode
 		return opt;
 	}
 
+	constexpr COLORREF cDefaultMainDark = RGB(0xDE, 0xDE, 0xDE);
+	constexpr COLORREF cDefaultSecondaryDark = RGB(0x00, 0x78, 0xD4);
+	constexpr COLORREF cDefaultMainLight = RGB(0x21, 0x21, 0x21);;
+	constexpr COLORREF cDefaultSecondaryLight = RGB(0x00, 0x78, 0xD4);
+
+	static COLORREF cAccentDark = cDefaultSecondaryDark;
+	static COLORREF cAccentLight = RGB(0xFF, 0xD7, 0x00);
+
+	static bool initAccentColor()
+	{
+		BOOL opaque = TRUE;
+		COLORREF cAccent = 0;
+		if (SUCCEEDED(::DwmGetColorizationColor(&cAccent, &opaque)))
+		{
+			cAccent = RGB(GetBValue(cAccent), GetGValue(cAccent), GetRValue(cAccent));
+			// check if accent color is too dark
+			static double lightnessTreshold = 50.0 - 3.0;
+			WORD h = 0;
+			WORD s = 0;
+			WORD l = 0;
+			::ColorRGBToHLS(cAccent, &h, &l, &s);
+			if (NppDarkMode::calculatePerceivedLightness(cAccent) < lightnessTreshold)
+			{
+				s -= 20;
+				l += 50;
+
+				cAccentDark = ::ColorHLSToRGB(h, l, s);
+				cAccentLight = cAccent;
+			}
+			else
+			{
+				s += 20;
+				l -= 50;
+
+				cAccentDark = cAccent;
+				cAccentLight = ::ColorHLSToRGB(h, l, s);
+			}
+			return true;
+		}
+		cAccentDark = RGB(0, 120, 212);
+		cAccentLight = RGB(0xFF, 0xD7, 0x00);
+		return false;
+	}
+
 	static bool g_isAtLeastWindows10 = false;
 	static bool g_isWine = false;
 
@@ -398,6 +443,7 @@ namespace NppDarkMode
 
 		initExperimentalDarkMode();
 		initAdvancedOptions();
+		initAccentColor();
 
 		g_isAtLeastWindows10 = NppDarkMode::isWindows10();
 
@@ -536,6 +582,23 @@ namespace NppDarkMode
 		return useDark ? g_advOptions._darkDefaults._toolBarIconSet : g_advOptions._lightDefaults._toolBarIconSet;
 	}
 
+	void setToolBarFluentColorType(int state2Set, bool useDark)
+	{
+		if (useDark)
+			g_advOptions._darkDefaults._toolBarFluentColorType = state2Set;
+		else
+			g_advOptions._lightDefaults._toolBarFluentColorType = state2Set;
+	}
+
+	int getToolBarFluentColorType(bool useDark)
+	{
+		if (g_isCustomToolIconUsed)
+		{
+			return -1;
+		}
+		return useDark ? g_advOptions._darkDefaults._toolBarFluentColorType : g_advOptions._lightDefaults._toolBarFluentColorType;
+	}
+
 	void setTabIconSet(bool useAltIcons, bool useDark)
 	{
 		if (useDark)
@@ -615,6 +678,11 @@ namespace NppDarkMode
 
 		double lightness = (luminance <= 216.0 / 24389.0) ? (luminance * 24389.0 / 27.0) : (std::pow(luminance, (1.0 / 3.0)) * 116.0 - 16.0);
 		return lightness;
+	}
+
+	COLORREF getAccentColor()
+	{
+		return NppDarkMode::isEnabled() ? cAccentDark : cAccentLight;
 	}
 
 	COLORREF getBackgroundColor()         { return getTheme()._colors.background; }
@@ -3447,4 +3515,146 @@ namespace NppDarkMode
 		return static_cast<INT_PTR>(NppDarkMode::onCtlColor(hdc));
 	}
 
+	bool changeFluentIconColor(HICON& hIcon, const std::vector<std::pair<COLORREF, COLORREF>>& colorMappings, int tolerance)
+	{
+		if (!hIcon)
+		{
+			return false;
+		}
+
+		HDC hdcScreen = nullptr;
+		HDC hdcBitmap = nullptr;
+		HBITMAP hbmNew = nullptr;
+		BITMAP bm{};
+		ICONINFO ii{};
+		std::unique_ptr<RGBQUAD[]> pixels;
+
+		const bool changeEverything = colorMappings[0].first == 0;
+
+		auto cleanup = [&]()
+			{
+				if (hdcBitmap) ::DeleteDC(hdcBitmap);
+				if (hdcScreen) ::ReleaseDC(nullptr, hdcScreen);
+				if (ii.hbmColor) ::DeleteObject(ii.hbmColor);
+				if (ii.hbmMask) ::DeleteObject(ii.hbmMask);
+				if (hbmNew) ::DeleteObject(hbmNew);
+			};
+
+		hdcScreen = ::GetDC(nullptr);
+		hdcBitmap = (hdcScreen != nullptr) ? ::CreateCompatibleDC(hdcScreen) : nullptr;
+
+		if (!hdcScreen || !hdcBitmap || !::GetIconInfo(hIcon, &ii) || !ii.hbmColor || !::GetObject(ii.hbmColor, sizeof(BITMAP), &bm))
+		{
+			cleanup();
+			return false;
+		}
+
+		BITMAPINFO bmi{};
+		bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		bmi.bmiHeader.biWidth = bm.bmWidth;
+		bmi.bmiHeader.biHeight = -bm.bmHeight; // Top-down bitmap
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 32;
+		bmi.bmiHeader.biCompression = BI_RGB;
+
+		pixels = std::make_unique<RGBQUAD[]>(static_cast<size_t>(bm.bmWidth) * bm.bmHeight);
+		if (!pixels || !::GetDIBits(hdcBitmap, ii.hbmColor, 0, bm.bmHeight, pixels.get(), &bmi, DIB_RGB_COLORS))
+		{
+			cleanup();
+			return false;
+		}
+
+		for (int i = 0; i < bm.bmWidth * bm.bmHeight; i++)
+		{
+			if (pixels[i].rgbReserved != 0) // Modify non-transparent pixels
+			{
+				if (changeEverything)
+				{
+					COLORREF cNew = colorMappings[0].second == 0 ? NppDarkMode::getAccentColor() : colorMappings[0].second;
+					pixels[i].rgbRed = GetRValue(cNew);
+					pixels[i].rgbGreen = GetGValue(cNew);
+					pixels[i].rgbBlue = GetBValue(cNew);
+				}
+				else
+				{
+					for (const auto& [cToChange, cNew] : colorMappings)
+					{
+
+						if (std::abs(pixels[i].rgbRed - GetRValue(cToChange)) <= tolerance &&
+							std::abs(pixels[i].rgbGreen - GetGValue(cToChange)) <= tolerance &&
+							std::abs(pixels[i].rgbBlue - GetBValue(cToChange)) <= tolerance)
+						{
+							COLORREF finalNewColor = (cNew == 0) ? NppDarkMode::getAccentColor() : cNew;
+							pixels[i].rgbRed = GetRValue(finalNewColor);
+							pixels[i].rgbGreen = GetGValue(finalNewColor);
+							pixels[i].rgbBlue = GetBValue(finalNewColor);
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		hbmNew = ::CreateCompatibleBitmap(hdcScreen, bm.bmWidth, bm.bmHeight);
+		if (!hbmNew || !::SetDIBits(hdcBitmap, hbmNew, 0, bm.bmHeight, pixels.get(), &bmi, DIB_RGB_COLORS))
+		{
+			cleanup();
+			return false;
+		}
+
+		ii.hbmColor = hbmNew;
+		HICON hIconNew = ::CreateIconIndirect(&ii);
+		if (!hIconNew)
+		{
+			cleanup();
+			return false;
+		}
+
+		::DestroyIcon(hIcon);
+		hIcon = hIconNew;
+
+		cleanup();
+		return true;
+	}
+
+	bool changeFluentIconColor(HICON& hIcon)
+	{
+		if (g_isCustomToolIconUsed)
+			return false;
+
+		const auto cMain = NppDarkMode::isEnabled() ? cDefaultMainDark : cDefaultMainLight;
+		const auto cSecondary = NppDarkMode::isEnabled() ? cDefaultSecondaryDark : cDefaultSecondaryLight;
+		std::vector<std::pair<COLORREF, COLORREF>> colorMappings;
+
+		NppParameters& nppParams = NppParameters::getInstance();
+		NppGUI& nppGUI = nppParams.getNppGUI();
+
+		switch (nppGUI._toolBarFluentColorType)
+		{
+			case FluentColorType::accent:
+			{
+				colorMappings = { {cSecondary, 0} };
+				break;
+			}
+
+			case FluentColorType::monochrome:
+			{
+				colorMappings = { {0, cMain} };
+				break;
+			}
+
+			case FluentColorType::monochromeAccent:
+			{
+				colorMappings = { {0, 0} };
+				break;
+			}
+
+			case FluentColorType::standard:
+			default:
+			{
+				return false;
+			}
+		}
+		return NppDarkMode::changeFluentIconColor(hIcon, colorMappings);
+	}
 }

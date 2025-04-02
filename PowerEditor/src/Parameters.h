@@ -791,6 +791,7 @@ struct LargeFileRestriction final
 struct NppGUI final
 {
 	toolBarStatusType _toolBarStatus = TB_STANDARD;
+	NppDarkMode::FluentColorType _toolBarFluentColorType = NppDarkMode::FluentColorType::standard;
 	bool _toolbarShow = true;
 	bool _statusBarShow = true;
 	bool _menuBarShow = true;

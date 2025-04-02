@@ -322,6 +322,12 @@ LRESULT Notepad_plus::process(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 				nppGUI._darkmode._isEnabled = enableDarkMode;
 				if (!_preference.isCreated())
 				{
+					const int toolbarFluentColor = NppDarkMode::getToolBarFluentColorType(NppDarkMode::isEnabled());
+					if (toolbarFluentColor != -1)
+					{
+						nppGUI._toolBarFluentColorType = static_cast<NppDarkMode::FluentColorType>(toolbarFluentColor);
+					}
+
 					const int iconState = NppDarkMode::getToolBarIconSet(NppDarkMode::isEnabled());
 					toolBarStatusType state = (iconState == -1) ? _toolBar.getState() : static_cast<toolBarStatusType>(iconState);
 					switch (state)

@@ -694,6 +694,12 @@ LRESULT Notepad_plus::init(HWND hwnd)
 	{
 		nppGUI._toolBarStatus = static_cast<toolBarStatusType>(toolbarState);
 	}
+
+	const int toolbarFluentColorType = NppDarkMode::getToolBarFluentColorType(NppDarkMode::isEnabled());
+	if (toolbarFluentColorType != -1)
+	{
+		nppGUI._toolBarFluentColorType = static_cast<NppDarkMode::FluentColorType>(toolbarFluentColorType);
+	}
 	toolBarStatusType tbStatus = nppGUI._toolBarStatus;
 	willBeShown = nppGUI._toolbarShow;
 
@@ -8520,6 +8526,12 @@ void Notepad_plus::refreshDarkMode(bool resetStyle)
 			{
 				::SendMessage(_pPublicInterface->getHSelf(), NPPM_INTERNAL_CHANGETABBARICONSET, static_cast<WPARAM>(false), NppDarkMode::isEnabled() ? 2 : 0);
 			}
+		}
+
+		const int fluentColorType = NppDarkMode::getToolBarFluentColorType(NppDarkMode::isEnabled());
+		if (fluentColorType != -1)
+		{
+			nppParams.getNppGUI()._toolBarFluentColorType = static_cast<NppDarkMode::FluentColorType>(fluentColorType);
 		}
 
 		const int iconState = NppDarkMode::getToolBarIconSet(NppDarkMode::isEnabled());

@@ -4827,6 +4827,19 @@ void NppParameters::feedGUIParameters(TiXmlNode *node)
 				else// if (!lstrcmp(val, L"yes"))
 					_nppGUI._toolbarShow = true;
 			}
+			val = element->Attribute(L"fluentColor");
+			if (val)
+			{
+				if (lstrcmp(val, L"0") == 0)
+					_nppGUI._toolBarFluentColorType = NppDarkMode::FluentColorType::standard;
+				else if (lstrcmp(val, L"1") == 0)
+					_nppGUI._toolBarFluentColorType = NppDarkMode::FluentColorType::accent;
+				else if (lstrcmp(val, L"2") == 0)
+					_nppGUI._toolBarFluentColorType = NppDarkMode::FluentColorType::monochrome;
+				else if (lstrcmp(val, L"3") == 0)
+					_nppGUI._toolBarFluentColorType = NppDarkMode::FluentColorType::monochromeAccent;
+			}
+
 			TiXmlNode *n = childNode->FirstChild();
 			if (n)
 			{
@@ -4844,6 +4857,7 @@ void NppParameters::feedGUIParameters(TiXmlNode *node)
 					else //if (!lstrcmp(val, L"standard"))
 						_nppGUI._toolBarStatus = TB_STANDARD;
 				}
+
 			}
 		}
 		else if (!lstrcmp(nm, L"StatusBar"))
@@ -6389,6 +6403,7 @@ void NppParameters::feedGUIParameters(TiXmlNode *node)
 			auto& darkThemeName = darkDefaults._xmlFileName;
 			darkThemeName = parseStringAttribute(L"darkThemeName", L"DarkModeDefault.xml");
 			darkDefaults._toolBarIconSet = parseToolBarIconsAttribute(L"darkToolBarIconSet", 0);
+			darkDefaults._toolBarFluentColorType = parseToolBarIconsAttribute(L"darkToolBarFluentColorType", 0);
 			darkDefaults._tabIconSet = parseTabIconsAttribute(L"darkTabIconSet", 2);
 			darkDefaults._tabUseTheme = parseYesNoBoolAttribute(L"darkTabUseTheme");
 
@@ -6396,6 +6411,7 @@ void NppParameters::feedGUIParameters(TiXmlNode *node)
 			auto& lightThemeName = lightDefaults._xmlFileName;
 			lightThemeName = parseStringAttribute(L"lightThemeName");
 			lightDefaults._toolBarIconSet = parseToolBarIconsAttribute(L"lightToolBarIconSet", 4);
+			lightDefaults._toolBarFluentColorType = parseToolBarIconsAttribute(L"lightToolBarFluentColorType", 0);
 			lightDefaults._tabIconSet = parseTabIconsAttribute(L"lightTabIconSet", 0);
 			lightDefaults._tabUseTheme = parseYesNoBoolAttribute(L"lightTabUseTheme", true);
 
@@ -7275,6 +7291,8 @@ void NppParameters::createXmlTreeFromGUIParams()
 		GUIConfigElement->SetAttribute(L"name", L"ToolBar");
 		const wchar_t *pStr = (_nppGUI._toolbarShow) ? L"yes" : L"no";
 		GUIConfigElement->SetAttribute(L"visible", pStr);
+		std::wstring str = std::to_wstring(static_cast<int>(_nppGUI._toolBarFluentColorType));
+		GUIConfigElement->SetAttribute(L"fluentColorType", str.c_str());
 
 		if (_nppGUI._toolBarStatus == TB_SMALL)
 			pStr = L"small";
@@ -7850,11 +7868,13 @@ void NppParameters::createXmlTreeFromGUIParams()
 
 		GUIConfigElement->SetAttribute(L"darkThemeName", _nppGUI._darkmode._advOptions._darkDefaults._xmlFileName.c_str());
 		GUIConfigElement->SetAttribute(L"darkToolBarIconSet", _nppGUI._darkmode._advOptions._darkDefaults._toolBarIconSet);
+		GUIConfigElement->SetAttribute(L"darkToolBarFluentColorType", _nppGUI._darkmode._advOptions._darkDefaults._toolBarFluentColorType);
 		GUIConfigElement->SetAttribute(L"darkTabIconSet", _nppGUI._darkmode._advOptions._darkDefaults._tabIconSet);
 		setYesNoBoolAttribute(L"darkTabUseTheme", _nppGUI._darkmode._advOptions._darkDefaults._tabUseTheme);
 
 		GUIConfigElement->SetAttribute(L"lightThemeName", _nppGUI._darkmode._advOptions._lightDefaults._xmlFileName.c_str());
 		GUIConfigElement->SetAttribute(L"lightToolBarIconSet", _nppGUI._darkmode._advOptions._lightDefaults._toolBarIconSet);
+		GUIConfigElement->SetAttribute(L"lightToolBarFluentColorType", _nppGUI._darkmode._advOptions._lightDefaults._toolBarFluentColorType);
 		GUIConfigElement->SetAttribute(L"lightTabIconSet", _nppGUI._darkmode._advOptions._lightDefaults._tabIconSet);
 		setYesNoBoolAttribute(L"lightTabUseTheme", _nppGUI._darkmode._advOptions._lightDefaults._tabUseTheme);
 	}

@@ -89,22 +89,22 @@ using fnShouldSystemUseDarkMode = bool (WINAPI *)(); // ordinal 138
 using fnSetPreferredAppMode = PreferredAppMode (WINAPI *)(PreferredAppMode appMode); // ordinal 135, in 1903
 using fnIsDarkModeAllowedForApp = bool (WINAPI *)(); // ordinal 139
 
-fnSetWindowCompositionAttribute _SetWindowCompositionAttribute = nullptr;
-fnShouldAppsUseDarkMode _ShouldAppsUseDarkMode = nullptr;
-fnAllowDarkModeForWindow _AllowDarkModeForWindow = nullptr;
-fnAllowDarkModeForApp _AllowDarkModeForApp = nullptr;
-fnFlushMenuThemes _FlushMenuThemes = nullptr;
-fnRefreshImmersiveColorPolicyState _RefreshImmersiveColorPolicyState = nullptr;
-fnIsDarkModeAllowedForWindow _IsDarkModeAllowedForWindow = nullptr;
-fnGetIsImmersiveColorUsingHighContrast _GetIsImmersiveColorUsingHighContrast = nullptr;
-fnOpenNcThemeData _OpenNcThemeData = nullptr;
+static fnSetWindowCompositionAttribute _SetWindowCompositionAttribute = nullptr;
+static fnShouldAppsUseDarkMode _ShouldAppsUseDarkMode = nullptr;
+static fnAllowDarkModeForWindow _AllowDarkModeForWindow = nullptr;
+static fnAllowDarkModeForApp _AllowDarkModeForApp = nullptr;
+static fnFlushMenuThemes _FlushMenuThemes = nullptr;
+static fnRefreshImmersiveColorPolicyState _RefreshImmersiveColorPolicyState = nullptr;
+static fnIsDarkModeAllowedForWindow _IsDarkModeAllowedForWindow = nullptr;
+static fnGetIsImmersiveColorUsingHighContrast _GetIsImmersiveColorUsingHighContrast = nullptr;
+static fnOpenNcThemeData _OpenNcThemeData = nullptr;
 // 1903 18362
 //fnShouldSystemUseDarkMode _ShouldSystemUseDarkMode = nullptr;
 fnSetPreferredAppMode _SetPreferredAppMode = nullptr;
 
 bool g_darkModeSupported = false;
 bool g_darkModeEnabled = false;
-DWORD g_buildNumber = 0;
+static DWORD g_buildNumber = 0;
 
 bool ShouldAppsUseDarkMode()
 {
@@ -186,7 +186,7 @@ void AllowDarkModeForApp(bool allow)
 		_SetPreferredAppMode(allow ? PreferredAppMode::ForceDark : PreferredAppMode::Default);
 }
 
-void FlushMenuThemes()
+static void FlushMenuThemes()
 {
 	if (_FlushMenuThemes)
 	{
@@ -196,8 +196,8 @@ void FlushMenuThemes()
 
 // limit dark scroll bar to specific windows and their children
 
-std::unordered_set<HWND> g_darkScrollBarWindows;
-std::mutex g_darkScrollBarMutex;
+static std::unordered_set<HWND> g_darkScrollBarWindows;
+static std::mutex g_darkScrollBarMutex;
 
 void EnableDarkScrollBarForWindowAndChildren(HWND hwnd)
 {
@@ -205,7 +205,7 @@ void EnableDarkScrollBarForWindowAndChildren(HWND hwnd)
 	g_darkScrollBarWindows.insert(hwnd);
 }
 
-bool IsWindowOrParentUsingDarkScrollBar(HWND hwnd)
+static bool IsWindowOrParentUsingDarkScrollBar(HWND hwnd)
 {
 	HWND hwndRoot = GetAncestor(hwnd, GA_ROOT);
 
@@ -223,7 +223,7 @@ bool IsWindowOrParentUsingDarkScrollBar(HWND hwnd)
 	return false;
 }
 
-void FixDarkScrollBar()
+static void FixDarkScrollBar()
 {
 	HMODULE hComctl = LoadLibraryEx(L"comctl32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	if (hComctl)
@@ -253,7 +253,7 @@ void FixDarkScrollBar()
 	}
 }
 
-constexpr bool CheckBuildNumber(DWORD buildNumber)
+static constexpr bool CheckBuildNumber(DWORD buildNumber)
 {
 	return (buildNumber == 17763 || // 1809
 		buildNumber == 18362 || // 1903

@@ -377,7 +377,7 @@ intptr_t CALLBACK DocumentMap::run_dlgProc(UINT message, WPARAM wParam, LPARAM l
 
 		case WM_NOTIFY:
 		{
-			switch (((LPNMHDR)lParam)->code)
+			switch (reinterpret_cast<LPNMHDR>(lParam)->code)
 			{
 				case DMN_CLOSE:
 				{
@@ -440,13 +440,13 @@ intptr_t CALLBACK DocumentMap::run_dlgProc(UINT message, WPARAM wParam, LPARAM l
 
 		case DOCUMENTMAP_MOUSEWHEEL:
 		{
-			(*_ppEditView)->mouseWheel(wParam, lParam);
+			::SendMessage((*_ppEditView)->getHSelf(), WM_MOUSEWHEEL, wParam, lParam);
+			return TRUE;
 		}
-		return TRUE;
 
-        default :
-            return DockingDlgInterface::run_dlgProc(message, wParam, lParam);
-    }
+		default:
+			break;
+	}
 	return DockingDlgInterface::run_dlgProc(message, wParam, lParam);
 }
 
@@ -579,7 +579,7 @@ LRESULT CALLBACK ViewZoneDlg::CanvasProc(
 
 		case WM_KEYDOWN:
 		{
-			HWND hParent = ::GetParent(hWnd);
+			HWND hParent = ::GetParent(::GetParent(hWnd));
 			if (wParam == VK_UP)
 			{
 				::SendMessage(hParent, DOCUMENTMAP_SCROLL, static_cast<WPARAM>(moveUp), 0);

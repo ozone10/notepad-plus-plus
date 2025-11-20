@@ -40,7 +40,6 @@ const int ScintillaEditView::_SC_MARGE_SYMBOL = 1;
 const int ScintillaEditView::_SC_MARGE_CHANGEHISTORY = 2;
 const int ScintillaEditView::_SC_MARGE_FOLDER = 3;
 
-WNDPROC ScintillaEditView::_scintillaDefaultProc = NULL;
 string ScintillaEditView::_defaultCharList = "";
 
 /*
@@ -345,9 +344,7 @@ void ScintillaEditView::init(HINSTANCE hInst, HWND hPere)
 
 	_codepage = nppParams.currentSystemCodepage();
 
-	::SetWindowLongPtr(_hSelf, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-	_callWindowProc = CallWindowProc;
-	_scintillaDefaultProc = reinterpret_cast<WNDPROC>(::SetWindowLongPtr(_hSelf, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(scintillaStatic_Proc)));
+	::SetWindowSubclass(_hSelf, ScintillaEditView::ScintillaStatic_Proc, static_cast<UINT_PTR>(SubclassID::first), reinterpret_cast<DWORD_PTR>(this));
 
 	if (_defaultCharList.empty())
 	{
@@ -370,35 +367,60 @@ void ScintillaEditView::init(HINSTANCE hInst, HWND hPere)
 	attachDefaultDoc();
 }
 
-LRESULT CALLBACK ScintillaEditView::scintillaStatic_Proc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ScintillaEditView::ScintillaStatic_Proc(
+	HWND hWnd,
+	UINT uMsg,
+	WPARAM wParam,
+	LPARAM lParam,
+	UINT_PTR uIdSubclass,
+	DWORD_PTR dwRefData
+)
 {
-	ScintillaEditView *pScint = (ScintillaEditView *)(::GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	auto* pScint = reinterpret_cast<ScintillaEditView*>(dwRefData);
 
-	if (Message == WM_MOUSEWHEEL || Message == WM_MOUSEHWHEEL)
+	switch (uMsg)
 	{
-		POINT pt{};
-		POINTS pts = MAKEPOINTS(lParam);
-		POINTSTOPOINT(pt, pts);
-		HWND hwndOnMouse = WindowFromPoint(pt);
+		case WM_NCDESTROY:
+		{
+			::RemoveWindowSubclass(hWnd, ScintillaEditView::ScintillaStatic_Proc, uIdSubclass);
+			break;
+		}
 
-		//Hack for Synaptics TouchPad Driver
-		char synapticsHack[26]{};
-		GetClassNameA(hwndOnMouse, (LPSTR)&synapticsHack, 26);
-		bool isSynaptics = std::string(synapticsHack) == "SynTrackCursorWindowClass";
-		bool makeTouchPadCompatible = ((NppParameters::getInstance()).getSVP())._disableAdvancedScrolling;
+		//case WM_MOUSEWHEEL:
+		//case WM_MOUSEHWHEEL:
+		//{
+		//	POINT pt{};
+		//	POINTS pts = MAKEPOINTS(lParam);
+		//	POINTSTOPOINT(pt, pts);
+		//	HWND hwndOnMouse = WindowFromPoint(pt);
 
-		if (pScint && (isSynaptics || makeTouchPadCompatible))
-			return (pScint->scintillaNew_Proc(hwnd, Message, wParam, lParam));
+		//	//Hack for Synaptics TouchPad Driver
+		//	auto className = std::string{ 26, '\0' };
+		//	::GetClassNameA(hwndOnMouse, className.data(), static_cast<int>(className.size()));
+		//	const bool isSynaptics = className == "SynTrackCursorWindowClass";
+		//	const bool makeTouchPadCompatible = NppParameters::getInstance().getSVP()._disableAdvancedScrolling;
 
-		const ScintillaEditView* pScintillaOnMouse = reinterpret_cast<const ScintillaEditView *>(::GetWindowLongPtr(hwndOnMouse, GWLP_USERDATA));
-		if (pScintillaOnMouse != pScint)
-			return ::SendMessage(hwndOnMouse, Message, wParam, lParam);
+		//	if (pScint && (isSynaptics || makeTouchPadCompatible))
+		//		return (pScint->scintillaNew_Proc(hWnd, uMsg, wParam, lParam));
+
+		//	if (className == "Scintilla" && hwndOnMouse != hWnd)
+		//	{
+		//		return ::SendMessage(hwndOnMouse, uMsg, wParam, lParam);
+		//	}
+
+		//	if (pScint != nullptr)
+		//		return (pScint->scintillaNew_Proc(hWnd, uMsg, wParam, lParam));
+		//	break;
+		//}
+
+		default:
+		{
+			if (pScint != nullptr)
+				return (pScint->scintillaNew_Proc(hWnd, uMsg, wParam, lParam));
+			break;
+		}
 	}
-	if (pScint)
-		return (pScint->scintillaNew_Proc(hwnd, Message, wParam, lParam));
-	else
-		return ::DefWindowProc(hwnd, Message, wParam, lParam);
-
+	return ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
 LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
@@ -411,44 +433,43 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 			return TRUE;
 		}
 
-		case WM_MOUSEHWHEEL :
+		case WM_MOUSEHWHEEL:
 		{
-			::CallWindowProc(_scintillaDefaultProc, hwnd, WM_HSCROLL, ((short)HIWORD(wParam) > 0)?SB_LINERIGHT:SB_LINELEFT, 0);
-			return TRUE;
+			::DefSubclassProc(hwnd, WM_HSCROLL, (GET_WHEEL_DELTA_WPARAM(wParam) > 0) ? SB_LINERIGHT : SB_LINELEFT, 0);
+			return 0;
 		}
 
-		case WM_MOUSEWHEEL :
+		case WM_MOUSEWHEEL:
 		{
-			if (LOWORD(wParam) & MK_RBUTTON)
+			if (GET_KEYSTATE_WPARAM(wParam) & MK_RBUTTON)
 			{
 				::SendMessage(_hParent, Message, wParam, lParam);
-				return TRUE;
+				return 0;
 			}
 
-			if (LOWORD(wParam) & MK_SHIFT)
+			if (GET_KEYSTATE_WPARAM(wParam) & MK_SHIFT)
 			{
 				// move 3 columns at a time
-				::CallWindowProc(_scintillaDefaultProc, hwnd, WM_HSCROLL, ((short)HIWORD(wParam) < 0) ? SB_LINERIGHT : SB_LINELEFT, 0);
-				::CallWindowProc(_scintillaDefaultProc, hwnd, WM_HSCROLL, ((short)HIWORD(wParam) < 0) ? SB_LINERIGHT : SB_LINELEFT, 0);
-				::CallWindowProc(_scintillaDefaultProc, hwnd, WM_HSCROLL, ((short)HIWORD(wParam) < 0) ? SB_LINERIGHT : SB_LINELEFT, 0);
-				return TRUE;
+				for (int i = 0; i < 3; ++i)
+				{
+					::DefSubclassProc(hwnd, WM_HSCROLL, (GET_WHEEL_DELTA_WPARAM(wParam) < 0) ? SB_LINERIGHT : SB_LINELEFT, 0);
+				}
+				return 0;
 			}
 
-			//Have to perform the scroll first, because the first/last line do not get updated until after the scroll has been parsed
-			LRESULT scrollResult = ::CallWindowProc(_scintillaDefaultProc, hwnd, Message, wParam, lParam);
-			return scrollResult;
+			// Have to perform the scroll first, because the first/last line do not get updated until after the scroll has been parsed
+			return ::DefSubclassProc(hwnd, Message, wParam, lParam);
 		}
 
 		case WM_IME_REQUEST:
 		{
-
 			if (wParam == IMR_RECONVERTSTRING)
 			{
-				intptr_t					textLength = 0;
-				intptr_t					selectSize = 0;
-				char				smallTextBuffer[128] = { '\0' };
-				char			  *	selectedStr = smallTextBuffer;
-				RECONVERTSTRING   *	reconvert = (RECONVERTSTRING *)lParam;
+				intptr_t textLength = 0;
+				intptr_t selectSize = 0;
+				char smallTextBuffer[128] = { '\0' };
+				char* selectedStr = smallTextBuffer;
+				auto* reconvert = reinterpret_cast<RECONVERTSTRING*>(lParam);
 
 				// does nothing with a rectangular selection
 				if (execute(SCI_SELECTIONISRECTANGLE, 0, 0))
@@ -480,11 +501,11 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 					selectedStr = new char[selectSize + 1];
 				getText(selectedStr, range.cpMin, range.cpMax);
 
-				if (reconvert == NULL)
+				if (reconvert == nullptr)
 				{
 					// convert the selection to Unicode, and get the number
 					// of bytes required for the converted text
-					textLength = sizeof(wchar_t) * ::MultiByteToWideChar(codepage, 0, selectedStr, (int)selectSize, NULL, 0);
+					textLength = sizeof(wchar_t) * ::MultiByteToWideChar(codepage, 0, selectedStr, static_cast<int>(selectSize), nullptr, 0);
 				}
 				else
 				{
@@ -493,25 +514,25 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 					// are wchar_t values, that is, character counts. The members dwStrOffset,
 					// dwCompStrOffset, and dwTargetStrOffset specify byte counts.
 
-					textLength = ::MultiByteToWideChar(	codepage, 0,
-														selectedStr, (int)selectSize,
-														(LPWSTR)((LPSTR)reconvert + sizeof(RECONVERTSTRING)),
-														static_cast<int>(reconvert->dwSize - sizeof(RECONVERTSTRING)));
+					textLength = ::MultiByteToWideChar(codepage, 0,
+						selectedStr, static_cast<int>(selectSize),
+						reinterpret_cast<LPWSTR>(reinterpret_cast<std::byte*>(reconvert) + sizeof(RECONVERTSTRING)),
+						static_cast<int>(reconvert->dwSize - sizeof(RECONVERTSTRING)));
 
 					// fill the structure
-					reconvert->dwVersion		 = 0;
-					reconvert->dwStrLen			 = static_cast<DWORD>(textLength);
-					reconvert->dwStrOffset		 = sizeof(RECONVERTSTRING);
-					reconvert->dwCompStrLen		 = static_cast<DWORD>(textLength);
-					reconvert->dwCompStrOffset	 = 0;
-					reconvert->dwTargetStrLen	 = reconvert->dwCompStrLen;
+					reconvert->dwVersion = 0;
+					reconvert->dwStrLen = static_cast<DWORD>(textLength);
+					reconvert->dwStrOffset = sizeof(RECONVERTSTRING);
+					reconvert->dwCompStrLen = static_cast<DWORD>(textLength);
+					reconvert->dwCompStrOffset = 0;
+					reconvert->dwTargetStrLen = reconvert->dwCompStrLen;
 					reconvert->dwTargetStrOffset = reconvert->dwCompStrOffset;
 
 					textLength *= sizeof(wchar_t);
 				}
 
 				if (selectedStr != smallTextBuffer)
-					delete [] selectedStr;
+					delete[] selectedStr;
 
 				// return the total length of the structure
 				return sizeof(RECONVERTSTRING) + textLength;
@@ -526,7 +547,7 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 			if ((NppParameters::getInstance()).getSVP()._npcNoInputC0 &&
 				(wParam <= 31 || wParam == 127))
 			{
-				return FALSE;
+				return 0;
 			}
 			break;
 		}
@@ -548,10 +569,12 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 
 		case WM_KEYDOWN:
 		{
-			struct MultiCaretInfo {
+			struct MultiCaretInfo
+			{
 				int _len2remove;
 				size_t _selIndex;
-				MultiCaretInfo(int len, size_t n) : _len2remove(len), _selIndex(n) {}
+				MultiCaretInfo(int len, size_t n) : _len2remove(len), _selIndex(n)
+				{}
 			};
 
 			bool isColumnSelection = (execute(SCI_GETSELECTIONMODE) == SC_SEL_RECTANGLE) || (execute(SCI_GETSELECTIONMODE) == SC_SEL_THIN);
@@ -584,7 +607,7 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 								size_t docLen = getCurrentDocLen();
 
 								char eolStr[3] = { '\0' };
-								Sci_TextRangeFull tr {};
+								Sci_TextRangeFull tr{};
 								tr.chrg.cpMin = posStart;
 								tr.chrg.cpMax = posEnd + 2;
 								if (tr.chrg.cpMax > static_cast<Sci_Position>(docLen))
@@ -616,7 +639,7 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 
 						// Let Scitilla do its job, if any
 						if (nbCaseForScint)
-							_callWindowProc(_scintillaDefaultProc, hwnd, Message, wParam, lParam);
+							::DefSubclassProc(hwnd, Message, wParam, lParam);
 
 						// then do our job, if it's not column mode
 						if (!isColumnSelection)
@@ -636,8 +659,7 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 
 						execute(SCI_ENDUNDOACTION);
 
-						return TRUE;
-
+						return 0;
 					}
 				}
 			}
@@ -662,7 +684,7 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 																	  // Solution suggested by Neil Hodgson. See:
 																	  // https://sourceforge.net/p/scintilla/bugs/2412/
 						break;
-	
+
 					case VK_ESCAPE:
 					{
 						int selection = static_cast<int>(execute(SCI_GETMAINSELECTION, 0, 0));
@@ -674,15 +696,8 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 
 					default:
 						break;
-
 				}
-
 			}
-			break;
-		}
-
-		case WM_VSCROLL :
-		{
 			break;
 		}
 
@@ -699,13 +714,13 @@ LRESULT ScintillaEditView::scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wPa
 					// don't let this go to Scintilla because it will 
 					// move the caret to the right-clicked location,
 					// cancelling any selection made by the user
-					return TRUE;
+					return 0;
 				}
 			}
 			break;
 		}
 	}
-	return _callWindowProc(_scintillaDefaultProc, hwnd, Message, wParam, lParam);
+	return ::DefSubclassProc(hwnd, Message, wParam, lParam);
 }
 
 #define DEFAULT_FONT_NAME "Courier New"

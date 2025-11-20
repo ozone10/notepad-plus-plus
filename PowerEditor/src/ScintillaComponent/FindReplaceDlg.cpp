@@ -256,7 +256,6 @@ void Searching::displaySectionCentered(size_t posStart, size_t posEnd, Scintilla
 	pEditView->execute(SCI_CHOOSECARETX);
 }
 
-WNDPROC FindReplaceDlg::originalFinderProc = nullptr;
 WNDPROC FindReplaceDlg::originalComboEditProc = nullptr;
 
 FindReplaceDlg::~FindReplaceDlg()
@@ -3785,7 +3784,7 @@ void FindReplaceDlg::findAllIn(InWhat op)
 		_pFinder->_scintView.init(_hInst, _pFinder->getHSelf());
 
 		// Subclass the ScintillaEditView for the Finder (Scintilla doesn't notify all key presses)
-		originalFinderProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(_pFinder->_scintView.getHSelf(), GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(finderProc)));
+		::SetWindowSubclass(_pFinder->_scintView.getHSelf(), FindReplaceDlg::FinderProc, static_cast<UINT_PTR>(SubclassID::first), reinterpret_cast<DWORD_PTR>(_pFinder));
 
 		_pFinder->setFinderReadOnly(true);
 		_pFinder->_scintView.execute(SCI_SETCODEPAGE, SC_CP_UTF8);
@@ -3934,7 +3933,7 @@ Finder* FindReplaceDlg::createFinder()
 		pFinder->_scintView.changeTextDirection(true);
 
 	// Subclass the ScintillaEditView for the Finder (Scintilla doesn't notify all key presses)
-	originalFinderProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(pFinder->_scintView.getHSelf(), GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(finderProc)));
+	::SetWindowSubclass(pFinder->_scintView.getHSelf(), FindReplaceDlg::FinderProc, static_cast<UINT_PTR>(SubclassID::first), reinterpret_cast<DWORD_PTR>(pFinder));
 
 	pFinder->setFinderReadOnly(true);
 	pFinder->_scintView.execute(SCI_SETCODEPAGE, SC_CP_UTF8);
@@ -4846,39 +4845,72 @@ void FindReplaceDlg::doDialog(DIALOG_TYPE whichType, bool isRTL, bool toShow)
 	display(toShow, true);
 }
 
-LRESULT FAR PASCAL FindReplaceDlg::finderProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK FindReplaceDlg::FinderProc(
+	HWND hWnd,
+	UINT uMsg,
+	WPARAM wParam,
+	LPARAM lParam,
+	UINT_PTR uIdSubclass,
+	DWORD_PTR dwRefData
+)
 {
-	if (message == WM_KEYDOWN && (wParam == VK_DELETE || wParam == VK_RETURN || wParam == VK_ESCAPE))
+	auto* pFinder = reinterpret_cast<Finder*>(dwRefData);
+
+	switch (uMsg)
 	{
-		ScintillaEditView *pScint = (ScintillaEditView *)(::GetWindowLongPtr(hwnd, GWLP_USERDATA));
-		Finder *pFinder = (Finder *)(::GetWindowLongPtr(pScint->getHParent(), GWLP_USERDATA));
-		if (wParam == VK_RETURN)
+		case WM_NCDESTROY:
 		{
-			std::pair<intptr_t, intptr_t> newPos = pFinder->gotoFoundLine();
-
-			auto currentPos = pFinder->_scintView.execute(SCI_GETCURRENTPOS);
-			intptr_t lno = pFinder->_scintView.execute(SCI_LINEFROMPOSITION, currentPos);
-			intptr_t lineStartAbsPos = pFinder->_scintView.execute(SCI_POSITIONFROMLINE, lno);
-			intptr_t lineEndAbsPos = pFinder->_scintView.execute(SCI_GETLINEENDPOSITION, lno);
-
-			intptr_t begin = newPos.first + lineStartAbsPos;
-			intptr_t end = newPos.second + lineStartAbsPos;
-
-			if (end > lineEndAbsPos)
-				end = lineEndAbsPos;
-
-			pFinder->_scintView.execute(SCI_SETSEL, begin, end);
-			pFinder->_scintView.execute(SCI_SCROLLRANGE, begin, end);
+			::RemoveWindowSubclass(hWnd, FindReplaceDlg::FinderProc, uIdSubclass);
+			break;
 		}
-		else if (wParam == VK_ESCAPE)
-			pFinder->display(false);
-		else // VK_DELETE
-			pFinder->deleteResult();
-		return 0;
+
+		case WM_KEYDOWN:
+		{
+			switch (wParam)
+			{
+				case VK_RETURN:
+				{
+					std::pair<intptr_t, intptr_t> newPos = pFinder->gotoFoundLine();
+
+					auto currentPos = pFinder->_scintView.execute(SCI_GETCURRENTPOS);
+					intptr_t lno = pFinder->_scintView.execute(SCI_LINEFROMPOSITION, currentPos);
+					intptr_t lineStartAbsPos = pFinder->_scintView.execute(SCI_POSITIONFROMLINE, lno);
+					intptr_t lineEndAbsPos = pFinder->_scintView.execute(SCI_GETLINEENDPOSITION, lno);
+
+					intptr_t begin = newPos.first + lineStartAbsPos;
+					intptr_t end = newPos.second + lineStartAbsPos;
+
+					if (end > lineEndAbsPos)
+						end = lineEndAbsPos;
+
+					pFinder->_scintView.execute(SCI_SETSEL, begin, end);
+					pFinder->_scintView.execute(SCI_SCROLLRANGE, begin, end);
+
+					return 0;
+				}
+
+				case VK_ESCAPE:
+				{
+					pFinder->display(false);
+					return 0;
+				}
+
+				case VK_DELETE:
+				{
+					pFinder->deleteResult();
+					return 0;
+				}
+
+				default:
+					break;
+			}
+			break;
+		}
+
+		default:
+			break;
 	}
-	else
-		// Call default (original) window procedure
-		return CallWindowProc(originalFinderProc, hwnd, message, wParam, lParam);
+	return ::DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
 LRESULT FAR PASCAL FindReplaceDlg::comboEditProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)

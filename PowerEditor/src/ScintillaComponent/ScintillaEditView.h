@@ -347,8 +347,6 @@ T* variedFormatNumber2String(T* str, size_t strLen, size_t number, size_t base, 
 	return str;
 }
 
-typedef LRESULT (WINAPI *CallWindowProcFunc) (WNDPROC,HWND,UINT,WPARAM,LPARAM);
-
 const bool L2R = true;
 const bool R2L = false;
 
@@ -820,10 +818,6 @@ public:
 	void setCRLF(long color = -1);
 	void setNpcAndCcUniEOL(long color = -1);
 
-	void mouseWheel(WPARAM wParam, LPARAM lParam) {
-		scintillaNew_Proc(_hSelf, WM_MOUSEWHEEL, wParam, lParam);
-	}
-
 	void setHotspotStyle(const Style& styleToSet);
 	void setTabSettings(Lang* lang);
 	bool isWrapRestoreNeeded() const { return _wrapRestoreNeeded; }
@@ -855,14 +849,12 @@ protected:
 
     static const int _markersArray[][NB_FOLDER_STATE];
 
-	static LRESULT CALLBACK scintillaStatic_Proc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam);
+	static LRESULT CALLBACK ScintillaStatic_Proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT scintillaNew_Proc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam);
 
 	bool _isMainEditZone = false;
 	SCINTILLA_FUNC _pScintillaFunc = nullptr;
 	SCINTILLA_PTR  _pScintillaPtr = nullptr;
-	static WNDPROC _scintillaDefaultProc;
-	CallWindowProcFunc _callWindowProc = nullptr;
 	BufferID attachDefaultDoc();
 
 	//Store the current buffer so it can be retrieved later

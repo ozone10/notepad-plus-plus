@@ -17,9 +17,13 @@
 
 #pragma once
 
+#include <windows.h>
+
 #include <map>
-#include "Common.h"
-#include "tinyxmlA.h"
+#include <string>
+#include <vector>
+
+#include <tinyxmlA.h>
 
 
 class FindReplaceDlg;
@@ -108,6 +112,4 @@ private:
 	static void resizeCheckboxRadioBtn(HWND hWnd);
 };
 
-
-MenuPosition & getMenuPosition(const char *id);
-
+const MenuPosition& getMenuPosition(const char* id);

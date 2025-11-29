@@ -7742,7 +7742,7 @@ struct TextTrollerParams
 };
 
 
-static const QuoteParams quotes[] =
+static constexpr QuoteParams quotes[]
 {
 	{L"Notepad++", QuoteParams::rapid, true, SC_CP_UTF8, L_TEXT, L"The creation of Notepad++ is due to my need for a decent editor to edit the source code of Notepad++"},
 	{L"Notepad++ #1", QuoteParams::rapid, true, SC_CP_UTF8, L_TEXT, L"I hate reading other people's code.\nSo I wrote mine, made it as open source project, and watch others suffer."},

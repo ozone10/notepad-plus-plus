@@ -17,22 +17,21 @@
 
 #pragma once
 
-#include "Common.h"
+#include <string>
 
-enum progType {WIN32_PROG, CONSOLE_PROG};
+enum progType { WIN32_PROG, CONSOLE_PROG };
 
 class Process
 {
 public:
-    Process(const wchar_t* cmd, const wchar_t* args, const wchar_t* cDir)
-		:_command(cmd), _args(args), _curDir(cDir){}
+	Process(const wchar_t* cmd, const wchar_t* args, const wchar_t* cDir)
+		:_command(cmd), _args(args), _curDir(cDir) {}
 
 	void run(bool isElevationRequired = false) const;
 	unsigned long runSync(bool isElevationRequired = false) const;
 
 protected:
-    std::wstring _command;
+	std::wstring _command;
 	std::wstring _args;
 	std::wstring _curDir;
 };
-

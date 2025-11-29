@@ -42,6 +42,7 @@
 #include "dpiManagerV2.h"
 
 #include "NppConstants.h"
+#include "Processus.h"
 
 using namespace std;
 
@@ -551,23 +552,23 @@ void Notepad_plus::command(int id)
 			if (!IsClipboardFormatAvailable(CF_TEXT))
 				return;
 
-			if (!OpenClipboard(NULL))
+			if (!::OpenClipboard(nullptr))
 				return;
 
 			HGLOBAL hglb = GetClipboardData(CF_TEXT);
-			if (hglb != NULL)
+			if (hglb != nullptr)
 			{
-				char *lpchar = (char *)GlobalLock(hglb);
-				if (lpchar != NULL)
+				auto* lpchar = static_cast<char*>(::GlobalLock(hglb));
+				if (lpchar != nullptr)
 				{
 					UINT cf_nppTextLen = RegisterClipboardFormat(CF_NPPTEXTLEN);
 					if (IsClipboardFormatAvailable(cf_nppTextLen))
 					{
 						HGLOBAL hglbLen = GetClipboardData(cf_nppTextLen);
-						if (hglbLen != NULL)
+						if (hglbLen != nullptr)
 						{
-							unsigned long *lpLen = (unsigned long *)GlobalLock(hglbLen);
-							if (lpLen != NULL)
+							auto* lpLen = static_cast<unsigned long*>(::GlobalLock(hglbLen));
+							if (lpLen != nullptr)
 							{
 								_pEditView->execute(SCI_REPLACESEL, 0, reinterpret_cast<LPARAM>(""));
 								_pEditView->execute(SCI_ADDTEXT, *lpLen, reinterpret_cast<LPARAM>(lpchar));
@@ -2503,11 +2504,11 @@ void Notepad_plus::command(int id)
 		{
 			_mainEditView.showIndentGuideLine(!_pEditView->isShownIndentGuide());
 			_subEditView.showIndentGuideLine(!_pEditView->isShownIndentGuide());
-            _toolBar.setCheck(IDM_VIEW_INDENT_GUIDE, _pEditView->isShownIndentGuide());
+			_toolBar.setCheck(IDM_VIEW_INDENT_GUIDE, _pEditView->isShownIndentGuide());
 			checkMenuItem(IDM_VIEW_INDENT_GUIDE, _pEditView->isShownIndentGuide());
 
-            ScintillaViewParams & svp1 = (ScintillaViewParams &)(NppParameters::getInstance()).getSVP();
-            svp1._indentGuideLineShow = _pEditView->isShownIndentGuide();
+			auto& svp1 = const_cast<ScintillaViewParams&>(NppParameters::getInstance().getSVP());
+			svp1._indentGuideLineShow = _pEditView->isShownIndentGuide();
 			break;
 		}
 
@@ -2527,7 +2528,7 @@ void Notepad_plus::command(int id)
 			_toolBar.setCheck(IDM_VIEW_WRAP, isWrapped);
 			checkMenuItem(IDM_VIEW_WRAP, isWrapped);
 
-			ScintillaViewParams & svp1 = (ScintillaViewParams &)(NppParameters::getInstance()).getSVP();
+			auto& svp1 = const_cast<ScintillaViewParams&>(NppParameters::getInstance().getSVP());
 			svp1._doWrap = isWrapped;
 
 			if (_pDocMap)
@@ -2543,8 +2544,8 @@ void Notepad_plus::command(int id)
 			_subEditView.showWrapSymbol(!_pEditView->isWrapSymbolVisible());
 			checkMenuItem(IDM_VIEW_WRAP_SYMBOL, _pEditView->isWrapSymbolVisible());
 
-            ScintillaViewParams & svp1 = (ScintillaViewParams &)(NppParameters::getInstance()).getSVP();
-            svp1._wrapSymbolShow = _pEditView->isWrapSymbolVisible();
+			auto& svp1 = const_cast<ScintillaViewParams&>(NppParameters::getInstance().getSVP());
+			svp1._wrapSymbolShow = _pEditView->isWrapSymbolVisible();
 			break;
 		}
 
@@ -3539,22 +3540,7 @@ void Notepad_plus::command(int id)
 
 			if (doAboutDlg)
 			{
-				//bool isFirstTime = !_aboutDlg.isCreated();
 				_aboutDlg.doDialog();
-				/*
-				if (isFirstTime && _nativeLangSpeaker.getNativeLangA())
-				{
-					if (_nativeLangSpeaker.getLangEncoding() == NPP_CP_BIG5)
-					{
-						const char *authorName = "«J¤µ§^";
-						HWND hItem = ::GetDlgItem(_aboutDlg.getHSelf(), IDC_AUTHOR_NAME);
-
-						WcharMbcsConvertor& wmc = WcharMbcsConvertor::getInstance();
-						const wchar_t *authorNameW = wmc.char2wchar(authorName, NPP_CP_BIG5);
-						::SetWindowText(hItem, authorNameW);
-					}
-				}
-				*/
 			}
 			break;
 		}

@@ -34,7 +34,6 @@
 #include "WindowsDlg.h"
 #include "RunMacroDlg.h"
 #include "DockingManager.h"
-#include "Processus.h"
 #include "AutoCompletion.h"
 #include "SmartHighlighter.h"
 #include "ScintillaCtrls.h"
@@ -44,7 +43,6 @@
 #include "documentSnapshot.h"
 #include "md5Dlgs.h"
 #include <vector>
-#include <iso646.h>
 #include <chrono>
 #include <atomic>
 
@@ -116,7 +114,7 @@ struct QuoteParams
 	enum Speed { slow = 0, rapid, speedOfLight };
 
 	QuoteParams() {}
-	QuoteParams(const wchar_t* quoter, Speed speed, bool shouldBeTrolling, int encoding, LangType lang, const wchar_t* quote) :
+	constexpr QuoteParams(const wchar_t* quoter, Speed speed, bool shouldBeTrolling, int encoding, LangType lang, const wchar_t* quote) noexcept :
 		_quoter(quoter), _speed(speed), _shouldBeTrolling(shouldBeTrolling), _encoding(encoding), _lang(lang), _quote(quote) {}
 
 	void reset() {

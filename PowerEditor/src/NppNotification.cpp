@@ -41,7 +41,7 @@ BOOL Notepad_plus::notify(SCNotification *notification)
 		notifyView = &_subEditView;
 
 	DocTabView *notifyDocTab = isFromPrimary?&_mainDocTab:&_subDocTab;
-	TBHDR * tabNotification = (TBHDR*) notification;
+	auto* tabNotification = reinterpret_cast<TBHDR*>(notification);
 	switch (notification->nmhdr.code)
 	{
 		case SCN_MODIFIED:
@@ -176,9 +176,9 @@ BOOL Notepad_plus::notify(SCNotification *notification)
 
 			if ((notification->margin == ScintillaEditView::_SC_MARGE_SYMBOL) && !notification->modifiers)
 			{
-				POINT p;
+				POINT p{};
 				::GetCursorPos(&p);
-				MenuPosition& menuPos = getMenuPosition("search-bookmark");
+				const MenuPosition& menuPos = getMenuPosition("search-bookmark");
 				HMENU hSearchMenu = ::GetSubMenu(_mainMenuHandle, menuPos._x);
 				if (hSearchMenu)
 				{
@@ -731,7 +731,7 @@ BOOL Notepad_plus::notify(SCNotification *notification)
 					quotFileName += L"\"";
 					COPYDATASTRUCT fileNamesData{};
 					fileNamesData.dwData = COPYDATA_FILENAMESW;
-					fileNamesData.lpData = (void *)quotFileName.c_str();
+					fileNamesData.lpData = quotFileName.data();
 					fileNamesData.cbData = static_cast<DWORD>((quotFileName.length() + 1) * sizeof(wchar_t));
 
 					HWND hWinParent = ::GetParent(hWin);
@@ -914,16 +914,16 @@ BOOL Notepad_plus::notify(SCNotification *notification)
 				}
 				else if (lpnm->dwItemSpec == DWORD(STATUSBAR_DOC_TYPE))
 				{
-					POINT p;
+					POINT p{};
 					::GetCursorPos(&p);
 					HMENU hLangMenu = ::GetSubMenu(_mainMenuHandle, MENUINDEX_LANGUAGE);
 					TrackPopupMenu(hLangMenu, 0, p.x, p.y, 0, _pPublicInterface->getHSelf(), NULL);
 				}
 				else if (lpnm->dwItemSpec == DWORD(STATUSBAR_EOF_FORMAT))
 				{
-					POINT p;
+					POINT p{};
 					::GetCursorPos(&p);
-					MenuPosition & menuPos = getMenuPosition("edit-eolConversion");
+					const MenuPosition& menuPos = getMenuPosition("edit-eolConversion");
 					HMENU hEditMenu = ::GetSubMenu(_mainMenuHandle, menuPos._x);
 					if (!hEditMenu)
 						return TRUE;
@@ -934,7 +934,7 @@ BOOL Notepad_plus::notify(SCNotification *notification)
 				}
 				else if (lpnm->dwItemSpec == DWORD(STATUSBAR_UNICODE_TYPE))
 				{
-					POINT p;
+					POINT p{};
 					::GetCursorPos(&p);
 					HMENU hLangMenu = ::GetSubMenu(_mainMenuHandle, MENUINDEX_FORMAT);
 					TrackPopupMenu(hLangMenu, 0, p.x, p.y, 0, _pPublicInterface->getHSelf(), NULL);
@@ -966,7 +966,7 @@ BOOL Notepad_plus::notify(SCNotification *notification)
 				}
 				else if (lpnm->dwItemSpec == DWORD(STATUSBAR_EOF_FORMAT))
 				{
-					MenuPosition & menuPos = getMenuPosition("edit-eolConversion");
+					const MenuPosition& menuPos = getMenuPosition("edit-eolConversion");
 					HMENU hEditMenu = ::GetSubMenu(_mainMenuHandle, menuPos._x);
 					if (!hEditMenu)
 						return TRUE;

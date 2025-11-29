@@ -19,14 +19,11 @@
 #include "ShortcutMapper.h"
 #include "EncodingMapper.h"
 #include "localization.h"
-#include "fileBrowser.h"
 #include "NppDarkMode.h"
 
 using namespace std;
 
-
-
-MenuPosition g_menuFolderPositions[] = {
+static constexpr MenuPosition g_menuFolderPositions[]{
 //==============================================
 //	{L0,  L1, L2, id},
 //==============================================
@@ -112,9 +109,9 @@ MenuPosition g_menuFolderPositions[] = {
 	{ -1,  -1, -1, "" } // End of array
 };
 
-MenuPosition& getMenuPosition(const char* id)
+const MenuPosition& getMenuPosition(const char* id)
 {
-	int nbSubMenuPos = sizeof(g_menuFolderPositions) / sizeof(MenuPosition);
+	const int nbSubMenuPos = sizeof(g_menuFolderPositions) / sizeof(MenuPosition);
 
 	for (int i = 0; i < nbSubMenuPos; ++i)
 	{
@@ -357,7 +354,7 @@ void NativeLangSpeaker::getMainMenuEntryName(std::wstring& dest, HMENU hMenu, co
 	const auto iter = _shortcutMenuEntryNameMap.find(menuId);
 	if (iter == _shortcutMenuEntryNameMap.end())
 	{
-		MenuPosition& menuPos = getMenuPosition(menuId);
+		const MenuPosition& menuPos = getMenuPosition(menuId);
 		if (menuPos._x != -1 && menuPos._y == -1 && menuPos._z == -1)
 		{
 			wchar_t str[MAX_PATH];
@@ -414,7 +411,7 @@ void NativeLangSpeaker::changeMenuLang(HMENU menuHandle)
 		const char *menuIdStr = element->Attribute("menuId");
 		if (menuIdStr)
 		{
-			MenuPosition & menuPos = getMenuPosition(menuIdStr);
+			const MenuPosition & menuPos = getMenuPosition(menuIdStr);
 			if (menuPos._x != -1)
 			{
 				const char *name = element->Attribute("name");
@@ -448,10 +445,10 @@ void NativeLangSpeaker::changeMenuLang(HMENU menuHandle)
 		const char* subMenuIdStr = element->Attribute("subMenuId");
 		const char* name = element->Attribute("name");
 
-		if (nullptr == subMenuIdStr or nullptr == name)
+		if (nullptr == subMenuIdStr || nullptr == name)
 			continue;
 
-		MenuPosition& menuPos = getMenuPosition(subMenuIdStr);
+		const MenuPosition& menuPos = getMenuPosition(subMenuIdStr);
 		int x = menuPos._x;
 		int y = menuPos._y;
 		int z = menuPos._z;
@@ -483,7 +480,7 @@ void NativeLangSpeaker::changeMenuLang(HMENU menuHandle)
 }
 
 
-static const int tabCmSubMenuEntryPos[] =
+static constexpr int tabCmSubMenuEntryPos[]
 {
 //   +-------------- The submenu entry item position on the top level of tab context menu
 //   |
@@ -491,11 +488,11 @@ static const int tabCmSubMenuEntryPos[] =
 //   |       |
 //   |       |
 //   |       |
-     1,   // 0  Close Multiple Tabs
-     5,   // 1  Open into
-    14,   // 2  Copy to Clipboard
-    15,   // 3  Move Document
-    16,   // 4  Apply Color to Tab
+	 1,   // 0  Close Multiple Tabs
+	 5,   // 1  Open into
+	14,   // 2  Copy to Clipboard
+	15,   // 3  Move Document
+	16,   // 4  Apply Color to Tab
 };
 
 

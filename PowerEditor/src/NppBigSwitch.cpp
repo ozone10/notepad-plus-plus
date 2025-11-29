@@ -33,6 +33,7 @@
 #include "fileBrowser.h"
 #include "NppDarkMode.h"
 #include "NppConstants.h"
+#include "Processus.h"
 
 using namespace std;
 
@@ -3471,8 +3472,8 @@ LRESULT Notepad_plus::process(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 		{
 			_mainEditView.execute(SCI_SETHIGHLIGHTGUIDE, 0);
 			_subEditView.execute(SCI_SETHIGHLIGHTGUIDE, 0);
-			_mainEditView.execute(SCI_BRACEBADLIGHT, WPARAM(-1));
-			_subEditView.execute(SCI_BRACEBADLIGHT, WPARAM(-1));
+			_mainEditView.execute(SCI_BRACEBADLIGHT, static_cast<WPARAM>(-1));
+			_subEditView.execute(SCI_BRACEBADLIGHT, static_cast<WPARAM>(-1));
 			return TRUE;
 		}
 

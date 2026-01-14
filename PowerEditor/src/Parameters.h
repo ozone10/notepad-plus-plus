@@ -2002,7 +2002,7 @@ private:
 	bool getUserCmdsFromXmlTree();
 	bool getPluginCmdsFromXmlTree();
 	bool getScintKeysFromXmlTree();
-	bool getSessionFromXmlTree(TiXmlDocument *pSessionDoc, Session& session);
+	static bool getSessionFromXmlTree(const NppXml::Document& pSessionDoc, Session& session);
 
 	void feedGUIParameters(TiXmlNode *node);
 	void feedKeyWordsParameters(TiXmlNode *node);

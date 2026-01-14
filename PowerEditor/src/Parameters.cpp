@@ -30,6 +30,7 @@
 #include <ctime>
 #include <cwchar>
 #include <exception>
+#include <locale>
 #include <map>
 #include <sstream>
 #include <stdexcept>
@@ -699,12 +700,14 @@ void cutString(const wchar_t* str2cut, vector<std::wstring>& patternVect)
 {
 	if (str2cut == nullptr) return;
 
+	static const auto& loc = std::locale::classic();
+
 	const wchar_t *pBegin = str2cut;
 	const wchar_t *pEnd = pBegin;
 
 	while (*pEnd != '\0')
 	{
-		if (_istspace(*pEnd))
+		if (std::isspace(*pEnd, loc))
 		{
 			if (pBegin != pEnd)
 				patternVect.emplace_back(pBegin, pEnd);
@@ -2238,10 +2241,11 @@ void NppParameters::updateLangXml(TiXmlElement* mainElemUser, TiXmlElement* main
 							std::sort(vwsUserWords.begin(), vwsUserWords.end());
 
 							// convert that list into space-separated string, with at most 8000 characters per line
-							size_t lineLength = 0, maxLineLength = 8000;
+							size_t lineLength = 0;
+							static constexpr size_t maxLineLength = 8000;
 							bool first = true;
-							std::wstring wsOutputWords(L"");
-							for (auto wsWord : vwsUserWords)
+							std::wstring wsOutputWords;
+							for (const auto& wsWord : vwsUserWords)
 							{
 								if (!first)
 								{
@@ -4293,8 +4297,8 @@ void NppParameters::writeSession(const Session & session, const wchar_t *fileNam
 	BOOL doesBackupCopyExist = FALSE;
 	if (doesFileExist(sessionPathName))
 	{
-		_tcscpy(backupPathName, sessionPathName);
-		_tcscat(backupPathName, SESSION_BACKUP_EXT);
+		std::wcscpy(backupPathName, sessionPathName);
+		std::wcscat(backupPathName, SESSION_BACKUP_EXT);
 
 		// Make sure backup file is not read-only, if it exists
 		removeReadOnlyFlagFromFileAttributes(backupPathName);
@@ -5498,10 +5502,6 @@ void NppParameters::feedKeyWordsParameters(TiXmlNode* node)
 			}
 		}
 	}
-}
-
-extern "C" {
-typedef DWORD (WINAPI * EESFUNC) (LPCTSTR, LPTSTR, DWORD);
 }
 
 void NppParameters::feedGUIParameters(TiXmlNode *node)
@@ -8943,9 +8943,9 @@ TiXmlElement * NppParameters::insertGUIConfigBoolNode(TiXmlNode *r2w, const wcha
 	return GUIConfigElement;
 }
 
-int RGB2int(COLORREF color)
+static int RGB2int(COLORREF color)
 {
-	return (((((DWORD)color) & 0x0000FF) << 16) | ((((DWORD)color) & 0x00FF00)) | ((((DWORD)color) & 0xFF0000) >> 16));
+	return (((color & 0x0000FF) << 16) | ((color & 0x00FF00)) | ((color & 0xFF0000) >> 16));
 }
 
 int NppParameters::langTypeToCommandID(LangType lt) const

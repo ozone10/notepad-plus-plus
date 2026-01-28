@@ -336,9 +336,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build_compiler: [gcc]
+        build_compiler: [gcc, clang]
         build_configuration: [Release, Debug]
         build_platform: [x86_64, i686]
+        exclude:
+          - build_compiler: clang
+            build_configuration: Release
+            build_platform: i686
+          - build_compiler: clang
+            build_configuration: Debug
+            build_platform: x86_64
+          - build_compiler: clang
+            build_configuration: Debug
+            build_platform: i686
 
     steps:
     - name: Checkout repo
@@ -370,6 +380,24 @@ jobs:
         if ( $${{ matrix.build_platform == 'x86_64'}} ) {bash -lc "pacman --noconfirm -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make"}
         Write-Output "Tools version:"
         Write-Output (((gcc --version) | select-object -first 1) + " " + (gcc -dumpmachine))
+        Write-Output (mingw32-make --version) | select-object -first 1
+        Write-Output (sh --version) | select-object -first 1
+        mingw32-make -f PowerEditor\gcc\makefile
+
+    - name: Make n++ exe / clang
+      if: matrix.build_compiler == 'clang'
+      working-directory: .\
+      run: |
+        Write-host "${{ matrix.build_platform }}"
+        Write-host "${{ matrix.build_configuration }}"
+        $Env:Path = 'C:\msys64\usr\bin' + [IO.Path]::PathSeparator + $Env:Path
+        if ( $${{ matrix.build_platform == 'x86_64'}} ) {$Env:MSYSTEM = 'CLANG64'}
+        if ( $${{ matrix.build_platform == 'x86_64'}} ) {$Env:Path = 'C:\msys64\clang64\bin' + [IO.Path]::PathSeparator + $Env:Path}
+        bash -lc "pacman --noconfirm -Syuu"
+        bash -lc "pacman --noconfirm -Syuu"
+        if ( $${{ matrix.build_platform == 'x86_64'}} ) {bash -lc "pacman --noconfirm -S mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-make"}
+        Write-Output "Tools version:"
+        Write-Output (((clang --version) | select-object -first 1) + " " + (clang -dumpmachine))
         Write-Output (mingw32-make --version) | select-object -first 1
         Write-Output (sh --version) | select-object -first 1
         mingw32-make -f PowerEditor\gcc\makefile

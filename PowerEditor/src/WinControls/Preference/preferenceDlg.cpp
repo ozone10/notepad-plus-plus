@@ -2169,12 +2169,6 @@ intptr_t CALLBACK Editing2SubDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 					::SendMessage(tip, TTM_SETMAXTIPWIDTH, 0, 260);
 				}
 			}
-
-			if (_tipNote != nullptr)
-			{
-				// Make tip stay 30 seconds
-				::SendMessage(_tipNote, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM((30000), (0)));
-			}
 		}
 		return TRUE;
 
@@ -3037,11 +3031,7 @@ intptr_t CALLBACK MarginsBorderEdgeSubDlg::run_dlgProc(UINT message, WPARAM wPar
 			wstring tipNote2Show = pNativeSpeaker->getLocalizedStrFromID("verticalEdge-tip",	L"Add your column marker by indicating its position with a decimal number. You can define several column markers by using white space to separate the different numbers.");
 
 			_verticalEdgeTip = CreateToolTip(IDC_BUTTON_VES_TIP, _hSelf, _hInst, tipNote2Show.data(), pNativeSpeaker->isRTL());
-			if (_verticalEdgeTip != nullptr)
-			{
-				// Make tip stay 30 seconds
-				::SendMessage(_verticalEdgeTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM((30000), (0)));
-			}
+
 			initScintParam();
 
 			NppDarkMode::autoSubclassAndThemeWindowNotify(_hSelf);
@@ -3347,8 +3337,6 @@ intptr_t CALLBACK MiscSubDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM)
 				L"May improve rendering of special characters or resolve some graphics issues, restart Notepad++ to apply the changes.");
 			_tipScintillaRenderingTechnology = CreateToolTip(IDC_COMBO_SC_TECHNOLOGY_CHOICE, _hSelf, _hInst,
 				tipScintillaRenderingTechnology2Show.data(), pNativeSpeaker->isRTL());
-			if (_tipScintillaRenderingTechnology)
-				::SendMessage(_tipScintillaRenderingTechnology, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM((20000), (0))); // stay 20 secs
 
 			::SendDlgItemMessage(_hSelf, IDC_CHECK_DETECTENCODING, BM_SETCHECK, nppGUI._detectEncoding, 0);
 			::SendDlgItemMessage(_hSelf, IDC_CHECK_SAVEALLCONFIRM, BM_SETCHECK, nppGUI._saveAllConfirm, 0);
@@ -6415,11 +6403,6 @@ intptr_t CALLBACK DelimiterSubDlg::run_dlgProc(UINT message, WPARAM wParam, LPAR
 			wstring tip2show = pNativeSpeaker->getLocalizedStrFromID("word-chars-list-tip", L"This allows you to include additional character into current word characters while double clicking for selection or searching with \"Match whole word only\" option checked.");
 
 			_tip = CreateToolTip(IDD_WORDCHAR_QUESTION_BUTTON, _hSelf, _hInst, tip2show.data(), pNativeSpeaker->isRTL());
-			if (_tip)
-			{
-				// Make tip stay 30 seconds
-				SendMessage(_tip, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM((30000), (0)));
-			}
 			return TRUE;
 		}
 
@@ -7123,9 +7106,6 @@ intptr_t CALLBACK SearchingSubDlg::run_dlgProc(UINT message, WPARAM wParam, LPAR
 			if (_tipInSelThresh != nullptr)
 			{
 				::SendMessage(_tipInSelThresh, TTM_SETMAXTIPWIDTH, 0, 260);
-
-				// Make tip stay 30 seconds
-				::SendMessage(_tipInSelThresh, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM((30000), (0)));
 			}
 
 			wstring tipFillFindWhatText = pNativeSpeaker->getLocalizedStrFromID("searchingFillFindWhat-tip", L"Maximum number of selected characters in edit zone to fill automatically the \"Find what\" field when the Ctrl-F is triggered. The maximum value is $INT_REPLACE$, which is the maximum size of \"Find what\" field, limited by the system.");
@@ -7136,9 +7116,6 @@ intptr_t CALLBACK SearchingSubDlg::run_dlgProc(UINT message, WPARAM wParam, LPAR
 			if (_tipFillFindWhatThresh != nullptr)
 			{
 				::SendMessage(_tipFillFindWhatThresh, TTM_SETMAXTIPWIDTH, 0, 260);
-
-				// Make tip stay 30 seconds
-				::SendMessage(_tipFillFindWhatThresh, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELPARAM((30000), (0)));
 			}
 			return TRUE;
 		}

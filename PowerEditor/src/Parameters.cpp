@@ -31,6 +31,7 @@
 #include <ctime>
 #include <cwchar>
 #include <exception>
+#include <fstream>
 #include <locale>
 #include <map>
 #include <memory>
@@ -4421,15 +4422,18 @@ void NppParameters::writeSession(const Session& session, const wchar_t* fileName
 	//
 	if (sessionSaveOK)
 	{
-		//Sleep(250);
 		NppXml::Document pXmlSessionCheck = new NppXml::NewDocument();
-		sessionSaveOK = NppXml::loadFile(pXmlSessionCheck, sessionPathName);
+
+		auto ifsSession = std::ifstream(sessionPathName);
+
+		sessionSaveOK = NppXml::loadFile(pXmlSessionCheck, ifsSession);
 		if (sessionSaveOK)
 		{
 			Session sessionCheck;
 			sessionSaveOK = getSessionFromXmlTree(pXmlSessionCheck, sessionCheck);
 		}
 		delete pXmlSessionCheck;
+		ifsSession.close();
 	}
 	else if (!isEndSessionCritical())
 	{

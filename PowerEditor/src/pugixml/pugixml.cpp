@@ -5097,7 +5097,7 @@ PUGI_IMPL_NS_BEGIN
 		(void)&strlength_wide;
 #endif
 
-#if defined(PUGI_IMPL_MSVC_CRT_VERSION) && PUGI_IMPL_MSVC_CRT_VERSION >= 1400 && 0
+#if defined(PUGI_IMPL_MSVC_CRT_VERSION) && PUGI_IMPL_MSVC_CRT_VERSION >= 1400
 		FILE* file = NULL;
 		return _wfopen_s(&file, path, mode) == 0 ? file : NULL;
 #else

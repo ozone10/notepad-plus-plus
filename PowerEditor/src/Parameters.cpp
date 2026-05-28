@@ -3109,8 +3109,6 @@ bool NppParameters::getSessionFromXmlTree(const NppXml::Document& pSessionDoc, S
 		session._activeView = index;
 	}
 
-	WcharMbcsConvertor& wmc = WcharMbcsConvertor::getInstance();
-
 	static constexpr size_t nbView = 2;
 	NppXml::Element viewRoots[nbView]{
 		NppXml::firstChildElement(sessionRoot, "mainView"),
@@ -3133,8 +3131,8 @@ bool NppParameters::getSessionFromXmlTree(const NppXml::Document& pSessionDoc, S
 				childNode;
 				childNode = NppXml::nextSiblingElement(childNode, "File"))
 			{
-				const char* fileName = NppXml::attribute(childNode, "filename");
-				if (fileName)
+				const std::wstring fileName = NppXml::attributeW(childNode, "filename");
+				if (!fileName.empty())
 				{
 					Position position{
 						._firstVisibleLine = static_cast<intptr_t>(NppXml::int64Attribute(childNode, "firstVisibleLine", 0)),
@@ -3160,23 +3158,17 @@ bool NppParameters::getSessionFromXmlTree(const NppXml::Document& pSessionDoc, S
 						._isWrap = getBoolAttribute(childNode, "mapIsWrap")
 					};
 
-					const char* langName = NppXml::attribute(childNode, "lang");
+					const std::wstring langName = NppXml::attributeW(childNode, "lang");
 
-					std::wstring wstrFileName = string2wstring(fileName);
-					std::wstring wstrLangName = langName ? string2wstring(langName) : L"";
-
-					const wchar_t* pBackupFilePath = wmc.char2wchar(NppXml::attribute(childNode, "backupFilePath"), CP_UTF8);
-					std::wstring currentBackupFilePath = NppParameters::getInstance().getUserPath() + L"\\backup\\";
-					if (pBackupFilePath)
+					std::wstring backupFilePath = NppXml::attributeW(childNode, "backupFilePath");
+					std::wstring currentBackupFilePath = NppParameters::getInstance().getUserPath();
+					pathAppend(currentBackupFilePath, L"backup");
+					if (!backupFilePath.empty() && !backupFilePath.starts_with(currentBackupFilePath))
 					{
-						std::wstring backupFilePath = pBackupFilePath;
-						if (!backupFilePath.starts_with(currentBackupFilePath))
-						{
-							// reconstruct backupFilePath
-							wchar_t* fn = ::PathFindFileNameW(pBackupFilePath);
-							currentBackupFilePath += fn;
-							pBackupFilePath = currentBackupFilePath.c_str();
-						}
+						// reconstruct backupFilePath
+						const wchar_t* fn = ::PathFindFileNameW(backupFilePath.c_str());
+						pathAppend(currentBackupFilePath, fn);
+						backupFilePath = currentBackupFilePath;
 					}
 
 					FILETIME fileModifiedTimestamp{
@@ -3190,9 +3182,9 @@ bool NppParameters::getSessionFromXmlTree(const NppXml::Document& pSessionDoc, S
 					const bool isPinned = getBoolAttribute(childNode, "tabPinned");
 					const bool isUntitleTabRenamed = getBoolAttribute(childNode, "untitleTabRenamed");
 
-					sessionFileInfo sfi(wstrFileName.c_str(), wstrLangName.c_str(), encoding,
+					auto sfi = sessionFileInfo(fileName.c_str(), langName.c_str(), encoding,
 						isUserReadOnly, isPinned, isUntitleTabRenamed,
-						position, pBackupFilePath, fileModifiedTimestamp, mapPosition);
+						position, backupFilePath.c_str(), fileModifiedTimestamp, mapPosition);
 
 					sfi._individualTabColour = NppXml::intAttribute(childNode, "tabColourId", -1);
 					sfi._isRTL = getBoolAttribute(childNode, "RTL");
@@ -3231,20 +3223,20 @@ bool NppParameters::getSessionFromXmlTree(const NppXml::Document& pSessionDoc, S
 	NppXml::Element fileBrowserRoot = NppXml::firstChildElement(sessionRoot, "FileBrowser");
 	if (fileBrowserRoot)
 	{
-		const char* selectedItemPath = NppXml::attribute(fileBrowserRoot, "latestSelectedItem");
-		if (selectedItemPath && selectedItemPath[0])
+		const std::wstring selectedItemPath = NppXml::attributeW(fileBrowserRoot, "latestSelectedItem");
+		if (!selectedItemPath.empty())
 		{
-			session._fileBrowserSelectedItem = string2wstring(selectedItemPath);
+			session._fileBrowserSelectedItem = selectedItemPath;
 		}
 
 		for (NppXml::Element childNode = NppXml::firstChildElement(fileBrowserRoot, "root");
 			childNode;
 			childNode = NppXml::nextSiblingElement(childNode, "root"))
 		{
-			const char* fileName = NppXml::attribute(childNode, "foldername");
-			if (fileName && fileName[0])
+			const std::wstring fileName = NppXml::attributeW(childNode, "foldername");
+			if (!fileName.empty())
 			{
-				session._fileBrowserRoots.push_back(string2wstring(fileName));
+				session._fileBrowserRoots.push_back(fileName);
 			}
 		}
 	}
@@ -4365,11 +4357,11 @@ void NppParameters::writeSession(const Session& session, const wchar_t* fileName
 				NppXml::setAttribute(fileNameNode, "selMode", vsFile._selMode);
 				NppXml::setAttribute(fileNameNode, "offset", vsFile._offset);
 				NppXml::setAttribute(fileNameNode, "wrapCount", vsFile._wrapCount);
-				NppXml::setAttribute(fileNameNode, "lang", wstring2string(vsFile._langName));
+				NppXml::setAttribute(fileNameNode, "lang", vsFile._langName);
 				NppXml::setAttribute(fileNameNode, "encoding", vsFile._encoding);
 				setBoolAttribute(fileNameNode, "userReadOnly", (vsFile._isUserReadOnly && !vsFile._isMonitoring));
-				NppXml::setAttribute(fileNameNode, "filename", wstring2string(vsFile._fileName));
-				NppXml::setAttribute(fileNameNode, "backupFilePath", wstring2string(vsFile._backupFilePath));
+				NppXml::setAttribute(fileNameNode, "filename", vsFile._fileName);
+				NppXml::setAttribute(fileNameNode, "backupFilePath", vsFile._backupFilePath);
 				NppXml::setAttribute(fileNameNode, "originalFileLastModifTimestamp", vsFile._originalFileLastModifTimestamp.dwLowDateTime);
 				NppXml::setAttribute(fileNameNode, "originalFileLastModifTimestampHigh", vsFile._originalFileLastModifTimestamp.dwHighDateTime);
 				NppXml::setAttribute(fileNameNode, "tabColourId", vsFile._individualTabColour);
@@ -4410,11 +4402,11 @@ void NppParameters::writeSession(const Session& session, const wchar_t* fileName
 		{
 			// Node structure and naming corresponds to config.xml
 			NppXml::Element fileBrowserRootNode = NppXml::createChildElement(sessionNode, "FileBrowser");
-			NppXml::setAttribute(fileBrowserRootNode, "latestSelectedItem", wstring2string(session._fileBrowserSelectedItem));
+			NppXml::setAttribute(fileBrowserRootNode, "latestSelectedItem", session._fileBrowserSelectedItem);
 			for (const auto& fbRoot : session._fileBrowserRoots)
 			{
 				NppXml::Element fileNameNode = NppXml::createChildElement(fileBrowserRootNode, "root");
-				NppXml::setAttribute(fileNameNode, "foldername", wstring2string(fbRoot));
+				NppXml::setAttribute(fileNameNode, "foldername", fbRoot);
 			}
 		}
 	}

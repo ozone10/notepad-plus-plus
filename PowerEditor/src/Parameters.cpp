@@ -4421,6 +4421,7 @@ void NppParameters::writeSession(const Session& session, const wchar_t* fileName
 	//
 	if (sessionSaveOK)
 	{
+		//Sleep(250);
 		NppXml::Document pXmlSessionCheck = new NppXml::NewDocument();
 		sessionSaveOK = NppXml::loadFile(pXmlSessionCheck, sessionPathName);
 		if (sessionSaveOK)

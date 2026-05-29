@@ -4331,24 +4331,23 @@ void NppParameters::writeSession(const Session& session, const wchar_t* fileName
 
 		struct ViewElem {
 			NppXml::Element viewNode;
-			const std::vector<sessionFileInfo>* viewFiles;
+			const std::vector<sessionFileInfo>& viewFiles;
 			size_t activeIndex;
 		};
 
 		static constexpr int nbElem = 2;
 		ViewElem viewElems[nbElem]{
-			ViewElem{.viewNode = NppXml::createChildElement(sessionNode, "mainView"), .viewFiles = &session._mainViewFiles, .activeIndex = session._activeMainIndex},
-			ViewElem{.viewNode = NppXml::createChildElement(sessionNode, "subView"), .viewFiles = &session._subViewFiles, .activeIndex = session._activeSubIndex}
+			ViewElem{.viewNode = NppXml::createChildElement(sessionNode, "mainView"), .viewFiles = session._mainViewFiles, .activeIndex = session._activeMainIndex},
+			ViewElem{.viewNode = NppXml::createChildElement(sessionNode, "subView"), .viewFiles = session._subViewFiles, .activeIndex = session._activeSubIndex}
 		};
 
-		for (size_t k = 0; k < nbElem ; ++k)
+		for (auto& viewElem : viewElems)
 		{
-			NppXml::setAttribute(viewElems[k].viewNode, "activeIndex", viewElems[k].activeIndex);
-			const std::vector<sessionFileInfo>& viewSessionFiles = *(viewElems[k].viewFiles);
+			NppXml::setAttribute(viewElem.viewNode, "activeIndex", viewElem.activeIndex);
 
-			for (const auto& vsFile : viewSessionFiles)
+			for (const auto& vsFile : viewElem.viewFiles)
 			{
-				NppXml::Element fileNameNode = NppXml::createChildElement(viewElems[k].viewNode, "File");
+				NppXml::Element fileNameNode = NppXml::createChildElement(viewElem.viewNode, "File");
 
 				NppXml::setAttribute(fileNameNode, "firstVisibleLine", vsFile._firstVisibleLine);
 				NppXml::setAttribute(fileNameNode, "xOffset", vsFile._xOffset);

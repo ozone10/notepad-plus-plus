@@ -6415,7 +6415,7 @@ void Notepad_plus::getCurrentOpenedFiles(Session & session, bool includeUntitled
 			BufferID bufID = docTab[k]->getBufferByIndex(i);
 			ScintillaEditView *editView = k == 0 ? &_mainEditView : &_subEditView;
 			size_t activeIndex = k == 0 ? session._activeMainIndex : session._activeSubIndex;
-			vector<sessionFileInfo> *viewFiles = (vector<sessionFileInfo> *)(k == 0?&(session._mainViewFiles):&(session._subViewFiles));
+			vector<sessionFileInfo>& viewFiles = (k == 0) ? session._mainViewFiles : session._subViewFiles;
 
 			Buffer * buf = MainFileManager.getBufferByID(bufID);
 
@@ -6468,7 +6468,7 @@ void Notepad_plus::getCurrentOpenedFiles(Session & session, bool includeUntitled
 			{
 				sfi._foldStates = buf->getHeaderLineState(editView);
 			}
-			viewFiles->push_back(sfi);
+			viewFiles.push_back(sfi);
 		}
 	}
 	_invisibleEditView.execute(SCI_SETDOCPOINTER, 0, oldDoc);

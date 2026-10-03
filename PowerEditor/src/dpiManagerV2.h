@@ -154,6 +154,8 @@ public:
 		return scaleFontForFactor(pt, scaleFactor);
 	}
 
+	[[nodiscard]] static int getAdjustedFontHeight(HWND hWnd, HFONT hFont) noexcept;
+
 private:
 	UINT _dpi = USER_DEFAULT_SCREEN_DPI;
 };

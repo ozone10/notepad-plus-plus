@@ -17,12 +17,30 @@
 
 #pragma once
 
+#include <windows.h>
+
 #include <map>
-#include "FindReplaceDlg_rc.h"
-#include "ScintillaEditView.h"
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <BoostRegexSearch.h>
+#include <Scintilla.h>
+
+#include "Common.h"
+#include "ContextMenu.h"
 #include "DockingDlgInterface.h"
-#include "BoostRegexSearch.h"
+#include "FindReplaceDlg_rc.h"
+#include "Notepad_plus_msgs.h"
+#include "Parameters.h"
+#include "ScintillaEditView.h"
+#include "StaticDialog.h"
 #include "StatusBar.h"
+#include "TabBar.h"
+#include "ToolBar.h"
+#include "Window.h"
+#include "dpiManagerV2.h"
 
 #define FIND_RECURSIVE 1
 #define FIND_INHIDDENDIR 2
@@ -134,7 +152,7 @@ public:
 	void addFileNameTitle(const wchar_t * fileName);
 	void addFileHitCount(int count);
 	void addSearchResultInfo(int count, int countSearched, bool searchedEntireNotSelection, const FindOption *pFindOpt);
-	std::string foundLine(FoundInfo fi, SearchResultMarkingLine mi, const wchar_t* foundline, size_t foundLineLen, size_t totalLineNumber);
+	std::string foundLine(FoundInfo fi, SearchResultMarkingLine miLine, const wchar_t* foundline, size_t foundLineLen, size_t totalLineNumber);
 	void setFinderStyle();
 	void setFinderStyleForNpc(bool onlyColor = false);
 	void removeAll();
@@ -310,7 +328,7 @@ public :
 	void getAndValidatePatterns(std::vector<std::wstring> & patternVect);
 
 	void setFindInFilesDirFilter(const wchar_t *dir, const wchar_t *filters);
-	void setProjectCheckmarks(FindHistory *findHistory, int Msk);
+	void setProjectCheckmarks(FindHistory* findHistory, int msk);
 	void enableProjectCheckmarks();
 
 	const std::wstring& getText2search() const {
@@ -430,6 +448,10 @@ public :
 
 protected :
 	void resizeDialogElements();
+	void setMinHeightAndBordersMetrics() noexcept;
+	void setMonospaceFont();
+	void setFont();
+
 	intptr_t CALLBACK run_dlgProc(UINT message, WPARAM wParam, LPARAM lParam) override;
 
 	static LRESULT CALLBACK ComboEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);

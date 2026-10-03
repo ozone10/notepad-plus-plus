@@ -342,32 +342,11 @@ void FindReplaceDlg::create(int dialogID, bool isRTL, bool msgDestParent, bool t
 	RECT rcClient{};
 	getClientRect(rcClient);
 
-	RECT rcCount{};
-	getMappedChildRect(IDCCOUNTALL, rcCount);
-
-	RECT rcOk{};
-	getMappedChildRect(IDOK, rcOk);
-
-	RECT rcTransGrpb{};
-	getMappedChildRect(IDC_TRANSPARENT_GRPBOX, rcTransGrpb);
-
-	RECT rcStatusBar{};
-	::GetWindowRect(_statusBar.getHSelf(), &rcStatusBar);
-
-	const LONG gap = (rcCount.top - rcOk.bottom);
-	_lesssModeHeight = (rcCount.bottom + gap);
-
-	const LONG padding = _dpiManager.getSystemMetricsForDpi(SM_CXPADDEDBORDER);
-	_szBorder.cx = (_dpiManager.getSystemMetricsForDpi(SM_CXFRAME) + padding) * 2;
-	_szBorder.cy = (_dpiManager.getSystemMetricsForDpi(SM_CYFRAME) + padding) * 2
-		+ _dpiManager.getSystemMetricsForDpi(SM_CYCAPTION)
-		+ (rcStatusBar.bottom - rcStatusBar.top);
-
 	//fill min dialog size info
 	_szMinDialog.cx = rcClient.right - rcClient.left;
-	_szMinDialog.cy = rcTransGrpb.bottom + gap;
+	setMinHeightAndBordersMetrics();
 
-	_tab.init(_hInst, _hSelf, false, true);
+	_tab.init(_hInst, _hSelf, false, false);
 	NppDarkMode::subclassTabControl(_tab.getHSelf());
 
 	const wchar_t *find = L"Find";
@@ -1448,6 +1427,92 @@ void FindReplaceDlg::resizeDialogElements()
 	::SetWindowPos(::GetDlgItem(_hSelf, IDFINDWHAT), nullptr, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_FRAMECHANGED | flags);
 }
 
+void FindReplaceDlg::setMinHeightAndBordersMetrics() noexcept
+{
+	RECT rcCount{};
+	getMappedChildRect(IDCCOUNTALL, rcCount);
+
+	RECT rcOk{};
+	getMappedChildRect(IDOK, rcOk);
+
+	RECT rcTransGrpb{};
+	getMappedChildRect(IDC_TRANSPARENT_GRPBOX, rcTransGrpb);
+
+	const LONG gap = (rcCount.top - rcOk.bottom);
+
+	_szMinDialog.cy = rcTransGrpb.bottom + gap;
+	_lesssModeHeight = (rcCount.bottom + gap);
+
+	const LONG padding = _dpiManager.getSystemMetricsForDpi(SM_CXPADDEDBORDER);
+	_szBorder.cx = ((_dpiManager.getSystemMetricsForDpi(SM_CXFRAME) + padding) * 2);
+	_szBorder.cy = ((_dpiManager.getSystemMetricsForDpi(SM_CYFRAME) + padding) * 2
+		+ _dpiManager.getSystemMetricsForDpi(SM_CYCAPTION)
+		+ _statusBar.getHeight());
+}
+
+void FindReplaceDlg::setMonospaceFont()
+{
+	if (_hComboBoxFont != nullptr)
+	{
+		::DeleteObject(_hComboBoxFont);
+		_hComboBoxFont = nullptr;
+	}
+
+	_hComboBoxFont = createFont(L"Courier New", 0, false, _hSelf);
+	::SendMessage(::GetDlgItem(_hSelf, IDFINDWHAT), WM_SETFONT, reinterpret_cast<WPARAM>(_hComboBoxFont), MAKELPARAM(TRUE, 0));
+}
+
+void FindReplaceDlg::setFont()
+{
+	static const WORD fontSizeBase = NppParameters::getInstance().getDlgFontSize();
+
+	auto* hFont = reinterpret_cast<HFONT>(::SendMessage(::GetDlgItem(_hSelf, IDFINDWHAT), WM_GETFONT, 0, 0));
+	
+	// Change ComboBox height to accomodate High-DPI settings.
+	// ComboBoxes are scaled using the font used in them, however this results in weird optics
+	// on scaling > 200% (192 DPI). Using this method we accomodate these scalings way better
+	// than the OS does with the current dpiAware manifest...
+
+	LOGFONT lf{};
+	::GetObjectW(hFont, sizeof(LOGFONT), &lf);
+	static const int fontSize = DPIManagerV2::scaleFontForFactor(fontSizeBase + 8);
+	static const int fontSizeCorrection = DPIManagerV2::scaleFontForFactor(5);
+	lf.lfHeight = -(_dpiManager.scale(fontSize) - fontSizeCorrection);
+
+	if (_hComboBoxFont != nullptr)
+	{
+		::DeleteObject(_hComboBoxFont);
+		_hComboBoxFont = nullptr;
+	}
+
+	_hComboBoxFont = ::CreateFontIndirectW(&lf);
+
+	for (const auto comboBoxId : { IDFINDWHAT, IDREPLACEWITH, IDD_FINDINFILES_FILTERS_COMBO, IDD_FINDINFILES_DIR_COMBO })
+	{
+		::SendMessage(::GetDlgItem(_hSelf, comboBoxId), WM_SETFONT, reinterpret_cast<WPARAM>(_hComboBoxFont), MAKELPARAM(TRUE, 0));
+	}
+
+	if (_hLargerBolderFont != nullptr)
+	{
+		::DeleteObject(_hLargerBolderFont);
+		_hLargerBolderFont = nullptr;
+	}
+
+	// "⇅" enlargement
+	_hLargerBolderFont = createFont(L"Courier New", fontSizeBase + 5, true, _hSelf);
+	::SendMessage(_hSwapButton, WM_SETFONT, reinterpret_cast<WPARAM>(_hLargerBolderFont), MAKELPARAM(TRUE, 0));
+
+	if (_hCourrierNewFont != nullptr)
+	{
+		::DeleteObject(_hCourrierNewFont);
+		_hCourrierNewFont = nullptr;
+	}
+
+	// Make "˄" & "˅" look better
+	_hCourrierNewFont = createFont(L"Courier New", fontSizeBase + 3, false, _hSelf);
+	::SendMessage(::GetDlgItem(_hSelf, IDD_RESIZE_TOGGLE_BUTTON), WM_SETFONT, reinterpret_cast<WPARAM>(_hCourrierNewFont), MAKELPARAM(TRUE, 0));
+}
+
 std::mutex findOps_mutex;
 
 intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM lParam)
@@ -1625,38 +1690,10 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 			
 			setDpi();
 
-			const WORD fontSizeBase = NppParameters::getInstance().getDlgFontSize();
-
-			HFONT hFont = nullptr;
-			const bool isMonospaced = NppParameters::getInstance().getNppGUI()._monospacedFontFindDlg;
-			if (isMonospaced)
+			if (NppParameters::getInstance().getNppGUI()._monospacedFontFindDlg)
 			{
-				hFont = createFont(L"Courier New", fontSizeBase, false, _hSelf);
+				setMonospaceFont();
 			}
-			else
-			{
-				hFont = reinterpret_cast<HFONT>(::SendMessage(hFindCombo, WM_GETFONT, 0, 0));
-			}
-			
-			// Change ComboBox height to accomodate High-DPI settings.
-			// ComboBoxes are scaled using the font used in them, however this results in weird optics
-			// on scaling > 200% (192 DPI). Using this method we accomodate these scalings way better
-			// than the OS does with the current dpiAware manifest...
-
-			LOGFONT lf{};
-			::GetObject(hFont, sizeof(lf), &lf);
-			static const int fontSize = DPIManagerV2::scaleFontForFactor(fontSizeBase + 7);
-			static const int fontSizeCorrection = DPIManagerV2::scaleFontForFactor(5);
-			lf.lfHeight = -(_dpiManager.scale(fontSize) - fontSizeCorrection);
-			_hComboBoxFont = ::CreateFontIndirect(&lf);
-
-			for (const auto& hComboBox : { hFindCombo, hReplaceCombo, hFiltersCombo, hDirCombo })
-			{
-				::SendMessage(hComboBox, WM_SETFONT, reinterpret_cast<WPARAM>(_hComboBoxFont), MAKELPARAM(TRUE, 0));
-			}
-
-			if (isMonospaced && hFont != nullptr)
-				::DeleteObject(hFont);
 
 			 NativeLangSpeaker *pNativeSpeaker = (NppParameters::getInstance()).getNativeLangSpeaker();
 
@@ -1680,13 +1717,7 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 
 			::SetWindowTextW(::GetDlgItem(_hSelf, IDD_RESIZE_TOGGLE_BUTTON), L"˄");
 
-			// "⇅" enlargement
-			_hLargerBolderFont = createFont(L"Courier New", fontSizeBase + 5, true, _hSelf);
-			::SendMessage(_hSwapButton, WM_SETFONT, reinterpret_cast<WPARAM>(_hLargerBolderFont), MAKELPARAM(TRUE, 0));
-
-			// Make "˄" & "˅" look better
-			_hCourrierNewFont = createFont(L"Courier New", fontSizeBase + 3, false, _hSelf);
-			::SendDlgItemMessage(_hSelf, IDD_RESIZE_TOGGLE_BUTTON, WM_SETFONT, reinterpret_cast<WPARAM>(_hCourrierNewFont), MAKELPARAM(TRUE, 0));
+			setFont();
 
 			return TRUE;
 		}
@@ -1877,13 +1908,12 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 			const UINT newDpi = static_cast<UINT>(wParam);
 			const UINT prevDpi = _dpiManager.getDpi();
 
+			::SendMessage(_statusBar.getHSelf(), WM_DPICHANGED, MAKEWPARAM(newDpi, newDpi), 0);
+
 			const bool isLessModeOn = NppParameters::getInstance().getNppGUI()._findWindowLessMode;
 
-			RECT rcStatusBar{};
-			::GetWindowRect(_statusBar.getHSelf(), &rcStatusBar);
-
 			rcClient.right = _dpiManager.scale(rcClient.right - rcClient.left, newDpi, prevDpi);
-			rcClient.bottom = _dpiManager.scale((isLessModeOn ? _lesssModeHeight : _szMinDialog.cy) + (rcStatusBar.bottom - rcStatusBar.top), newDpi, prevDpi);
+			rcClient.bottom = _dpiManager.scale((isLessModeOn ? _lesssModeHeight : _szMinDialog.cy), newDpi, prevDpi) + _statusBar.getHeight();
 
 			LONG xBorder = 0;
 			LONG yBorder = 0;
@@ -1912,59 +1942,24 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 
 		case WM_DPICHANGED:
 		{
+			::SendMessage(_statusBar.getHSelf(), WM_DPICHANGED, wParam, lParam);
+
 			const UINT prevDpi = _dpiManager.getDpi();
 			_dpiManager.setDpiWP(wParam);
+			const UINT dpi = _dpiManager.getDpi();
 
-			if (_hLargerBolderFont)
-				::DeleteObject(_hLargerBolderFont);
+			setFont();
 
-			if (_hCourrierNewFont)
-				::DeleteObject(_hCourrierNewFont);
+			setMinHeightAndBordersMetrics();
 
-			if (_hComboBoxFont)
-				::DeleteObject(_hComboBoxFont);
-
-			static const WORD fontSizeBase = NppParameters::getInstance().getDlgFontSize();
-
-			_hLargerBolderFont = createFont(L"Courier New", fontSizeBase + 5, true, _hSelf);
-			::SendMessage(_hSwapButton, WM_SETFONT, reinterpret_cast<WPARAM>(_hLargerBolderFont), MAKELPARAM(TRUE, 0));
-
-			_hCourrierNewFont = createFont(L"Courier New", fontSizeBase + 3, false, _hSelf);
-			::SendDlgItemMessage(_hSelf, IDD_RESIZE_TOGGLE_BUTTON, WM_SETFONT, reinterpret_cast<WPARAM>(_hCourrierNewFont), MAKELPARAM(TRUE, 0));
-
-			LOGFONT lf{};
-			HFONT font = reinterpret_cast<HFONT>(::SendDlgItemMessage(_hSelf, IDFINDWHAT, WM_GETFONT, 0, 0));
-			::GetObject(font, sizeof(lf), &lf);
-			static const int fontSize = DPIManagerV2::scaleFontForFactor(fontSizeBase + 7);
-			static const int fontSizeCorrection = DPIManagerV2::scaleFontForFactor(5);
-			lf.lfHeight = -(_dpiManager.scale(fontSize) - fontSizeCorrection);
-			_hComboBoxFont = ::CreateFontIndirect(&lf);
-
-			for (auto idComboBox : { IDFINDWHAT, IDREPLACEWITH, IDD_FINDINFILES_FILTERS_COMBO, IDD_FINDINFILES_DIR_COMBO })
+			if (prevDpi > dpi)
 			{
-				::SendDlgItemMessage(_hSelf, idComboBox, WM_SETFONT, reinterpret_cast<WPARAM>(_hComboBoxFont), MAKELPARAM(TRUE, 0));
-			}
-
-			RECT rcStatusBar{};
-			::GetWindowRect(_statusBar.getHSelf(), &rcStatusBar);
-
-			LONG padding = _dpiManager.getSystemMetricsForDpi(SM_CXPADDEDBORDER);
-			_szBorder.cx = ((_dpiManager.getSystemMetricsForDpi(SM_CXFRAME) + padding) * 2);
-			_szBorder.cy = ((_dpiManager.getSystemMetricsForDpi(SM_CYFRAME) + padding) * 2
-				+ _dpiManager.getSystemMetricsForDpi(SM_CYCAPTION)
-				+ (rcStatusBar.bottom - rcStatusBar.top));
-
-			if (prevDpi > _dpiManager.getDpi())
-			{
-				padding = static_cast<LONG>(_dpiManager.getSystemMetricsForDpi(SM_CXPADDEDBORDER));
+				auto padding = static_cast<LONG>(_dpiManager.getSystemMetricsForDpi(SM_CXPADDEDBORDER));
 				_szBorder.cx += padding;
 				_szBorder.cy += padding;
 			}
 
-			const UINT dpi = _dpiManager.getDpi();
 			_szMinDialog.cx = _dpiManager.scale(_szMinDialog.cx, dpi, prevDpi);
-			_szMinDialog.cy = _dpiManager.scale(_szMinDialog.cy, dpi, prevDpi);
-			_lesssModeHeight = _dpiManager.scale(_lesssModeHeight, dpi, prevDpi);
 
 			setPositionDpi(lParam, SWP_NOZORDER | SWP_NOACTIVATE);
 
@@ -2199,7 +2194,7 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 					{
 						_swapButtonStatus = swap;
 						::SetWindowTextW(_hSwapButton, L"⇅");
-						SendMessage(_hSwapButton, WM_SETFONT, (WPARAM)_hLargerBolderFont, MAKELPARAM(true, 0));
+						::SendMessage(_hSwapButton, WM_SETFONT, reinterpret_cast<WPARAM>(_hLargerBolderFont), MAKELPARAM(TRUE, 0));
 					}
 					::SendMessage(_hSelf, WM_COMMAND, IDD_FINDREPLACE_SWAP_BUTTON, 0);
 					return TRUE;
@@ -2211,7 +2206,7 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 					{
 						_swapButtonStatus = down;
 						::SetWindowTextW(_hSwapButton, L"⤵");
-						SendMessage(_hSwapButton, WM_SETFONT, (WPARAM)_hLargerBolderFont, MAKELPARAM(true, 0));
+						::SendMessage(_hSwapButton, WM_SETFONT, reinterpret_cast<WPARAM>(_hLargerBolderFont), MAKELPARAM(TRUE, 0));
 					}
 					::SendMessage(_hSelf, WM_COMMAND, IDD_FINDREPLACE_SWAP_BUTTON, 0);
 					return TRUE;
@@ -2223,7 +2218,7 @@ intptr_t CALLBACK FindReplaceDlg::run_dlgProc(UINT message, WPARAM wParam, LPARA
 					{
 						_swapButtonStatus = up;
 						::SetWindowTextW(_hSwapButton, L"⤴");
-						SendMessage(_hSwapButton, WM_SETFONT, (WPARAM)_hLargerBolderFont, MAKELPARAM(true, 0));
+						::SendMessage(_hSwapButton, WM_SETFONT, reinterpret_cast<WPARAM>(_hLargerBolderFont), MAKELPARAM(TRUE, 0));
 					}
 					::SendMessage(_hSelf, WM_COMMAND, IDD_FINDREPLACE_SWAP_BUTTON, 0);
 					return TRUE;
@@ -3211,7 +3206,6 @@ bool FindReplaceDlg::processReplace(const wchar_t *txt2find, const wchar_t *txt2
 	}
 	else if (isSearchUnicodeCharOnAnsi(txt2replace))
 	{
-		NativeLangSpeaker* pNativeSpeaker = (NppParameters::getInstance()).getNativeLangSpeaker();
 		wstring msg = pNativeSpeaker->getLocalizedStrFromID("find-status-replace-invalid-replace-chars", L"Replace: can't replace with non-ANSI text in ANSI document");
 		setStatusbarMessage(msg, FSNotFound);
 		return false;
@@ -4962,7 +4956,9 @@ void FindReplaceDlg::doDialog(DIALOG_TYPE whichType, bool isRTL, bool toShow)
 	if (!isCreated())
 	{
 		_isRTL = isRTL;
+		const auto dpiContext = DPIManagerV2::setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 		create(IDD_FIND_REPLACE_DLG, isRTL, true, toShow);
+		DPIManagerV2::setThreadDpiAwarenessContext(dpiContext);
 
 		::EnableMenuItem(::GetMenu(_hParent), IDM_SEARCH_FINDNEXT, MF_BYCOMMAND | MF_ENABLED);
 		::EnableMenuItem(::GetMenu(_hParent), IDM_SEARCH_FINDPREV, MF_BYCOMMAND | MF_ENABLED);
@@ -5458,7 +5454,7 @@ void FindReplaceDlg::drawStatusBarItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
 	//printStr(L"OK"));
 	COLORREF fgColor = black; // black by default
-	PCTSTR ptStr =(PCTSTR)lpDrawItemStruct->itemData;
+	auto* ptStr =reinterpret_cast<const wchar_t*>(lpDrawItemStruct->itemData);
 	NppParameters& nppParamInst = NppParameters::getInstance();
 	
 	if (_statusbarFindStatus == FSNotFound)
@@ -5518,13 +5514,14 @@ void FindReplaceDlg::drawStatusBarItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 	{
 		rect.left += 2;
 	}
-
-	::DrawText(lpDrawItemStruct->hDC, ptStr, lstrlen(ptStr), &rect, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+	
+	const auto len = static_cast<int>(std::wcslen(ptStr));
+	::DrawTextW(lpDrawItemStruct->hDC, ptStr, len, &rect, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
 
 	if (_statusbarTooltipMsg.empty()) return;
 
 	SIZE size{};
-	::GetTextExtentPoint32(lpDrawItemStruct->hDC, ptStr, lstrlen(ptStr), &size);
+	::GetTextExtentPoint32W(lpDrawItemStruct->hDC, ptStr, len, &size);
 	int s = (rect.bottom - rect.top) & 0x70; // limit s to available icon sizes and avoid uneven scalings
 	if (s > 0)
 	{
@@ -5535,14 +5532,14 @@ void FindReplaceDlg::drawStatusBarItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 		}
 
 		if (!_statusbarTooltipIcon)
-			_statusbarTooltipIcon = (HICON)::LoadImage(_hInst, MAKEINTRESOURCE(IDI_GET_INFO_FROM_TOOLTIP), IMAGE_ICON, s, s, 0);
+			DPIManagerV2::loadIcon(_hInst, MAKEINTRESOURCE(IDI_GET_INFO_FROM_TOOLTIP), s, s, &_statusbarTooltipIcon);
 
 		if (_statusbarTooltipIcon)
 		{
 			_statusbarTooltipIconSize = s;
 			rect.left = rect.left + size.cx + s / 2;
 			rect.top  = (rect.top + rect.bottom - s) / 2;
-			DrawIconEx (lpDrawItemStruct->hDC, rect.left, rect.top, _statusbarTooltipIcon, s, s, 0, NULL, DI_NORMAL);
+			::DrawIconEx(lpDrawItemStruct->hDC, rect.left, rect.top, _statusbarTooltipIcon, s, s, 0, nullptr, DI_NORMAL);
 			if (!_statusbarTooltipWnd)
 			{
 				rect.right = rect.left + s;

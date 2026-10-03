@@ -19,13 +19,13 @@
 
 #include <windows.h>
 
+#include <uxtheme.h>
+
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "Window.h"
-
-struct StatusBarSubclassInfo;
-
 
 class StatusBar final : public Window
 {
@@ -37,7 +37,6 @@ public:
 	bool setPartWidth(int whichPart, int width);
 
 	void destroy() override;
-	void reSizeTo(RECT& rc) override;
 
 	int getHeight() const override;
 
@@ -45,13 +44,21 @@ public:
 	bool setOwnerDrawText(const wchar_t* str);
 	void adjustParts(int clientWidth);
 
-
-private:
-	void init(HINSTANCE hInst, HWND hPere) override;
+	void setFontAndHeight() noexcept;
 
 private:
 	std::vector<int> _partWidthArray;
-	int *_lpParts = nullptr;
+	std::unique_ptr<int[]> _lpParts = nullptr;
 	std::wstring _lastSetText;
-	StatusBarSubclassInfo* _pStatusBarInfo = nullptr;
+	HTHEME _hTheme = nullptr;
+	HFONT _hFont = nullptr;
+
+	using Window::init;
+
+	static LRESULT CALLBACK StatusBarSubclass(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+
+	bool ensureTheme() noexcept;
+	void closeTheme() noexcept;
+	void resetFont(UINT dpi) noexcept;
+	void destroyFont() noexcept;
 };

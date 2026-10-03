@@ -254,3 +254,17 @@ DWORD DPIManagerV2::getTextScaleFactor()
 	}
 	return defaultVal;
 }
+
+int DPIManagerV2::getAdjustedFontHeight(HWND hWnd, HFONT hFont) noexcept
+{
+	HDC hdc = ::GetWindowDC(hWnd);
+	auto hOldFont = ::SelectObject(hdc, hFont);
+
+	TEXTMETRIC tm{};
+	::GetTextMetricsW(hdc, &tm);
+
+	::SelectObject(hdc, hOldFont);
+	::ReleaseDC(hWnd, hdc);
+
+	return tm.tmHeight + tm.tmExternalLeading + 4;
+}

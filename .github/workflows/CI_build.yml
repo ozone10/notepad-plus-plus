@@ -345,12 +345,12 @@ jobs:
             arch: i686
             configuration: Debug
             compiler: gcc
-          - msys: MINGW64
+          - msys: UCRT64
             env: x86_64
             arch: x86_64
             configuration: Release
             compiler: gcc
-          - msys: MINGW64
+          - msys: UCRT64
             env: x86_64
             arch: x86_64
             configuration: Debug

@@ -21,6 +21,8 @@
 
 #include <commctrl.h>
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -91,18 +93,9 @@ void VerticalFileSwitcherListView::init(HINSTANCE hInst, HWND hParent, UINT_PTR 
 
 void VerticalFileSwitcherListView::destroy()
 {
-	LVITEM item{};
-	item.mask = LVIF_PARAM;
-	int nbItem = ListView_GetItemCount(_hSelf);
-	for (int i = 0 ; i < nbItem ; ++i)
-	{
-		item.iItem = i;
-		ListView_GetItem(_hSelf, &item);
-		auto* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
-		delete odi;
-	}
 	::DestroyWindow(_hSelf);
 	_hSelf = nullptr;
+	_items.clear();
 } 
 
 void VerticalFileSwitcherListView::reSizeToWH(int width, int height)
@@ -154,42 +147,37 @@ void VerticalFileSwitcherListView::initList()
 	::SendMessage(nppHwnd, WM_GETTASKLISTINFO, reinterpret_cast<WPARAM>(&taskListInfo), TRUE);
 
 	const size_t len = taskListInfo._openedDocInfoList.size();
+	_items.reserve(len);
 	ListView_SetItemCount(_hSelf, len);
 
 	for (size_t i = 0; i < len; ++i)
 	{
-		OpenedDocInfo & fileNameStatus = taskListInfo._openedDocInfoList[i];
+		_items.emplace_back(taskListInfo._openedDocInfoList[i]);
+		const auto& vfsItem = _items.back();
 
-		OpenedDocInfo *tl = new OpenedDocInfo(fileNameStatus);
+		std::wstring fn = vfsItem.getFn(!isExtColumn);
+		std::wstring ext = vfsItem.getExt();
+		std::wstring dir = vfsItem.getDir();
 
-		wchar_t fn[MAX_PATH] = { '\0' };
-		wcscpy_s(fn, ::PathFindFileName(fileNameStatus._fullPathName.c_str()));
-
-		if (isExtColumn)
-		{
-			::PathRemoveExtension(fn);
-		}
 		LVITEM item{};
-		item.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_PARAM | LVIF_GROUPID;
-		
-		item.pszText = fn;
+		item.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_GROUPID;
+
+		item.pszText = fn.data();
 		item.iItem = static_cast<int>(i);
 		item.iSubItem = 0;
-		item.iImage = fileNameStatus._status;
-		item.lParam = reinterpret_cast<LPARAM>(tl);
-		item.iGroupId = fileNameStatus._iView;
+		item.iImage = vfsItem._odi->_status;
+		item.iGroupId = vfsItem._odi->_iView;
 		ListView_InsertItem(_hSelf, &item);
+
 		int colIndex2 = 0;
 		if (isExtColumn)
 		{
-			ListView_SetItemText(_hSelf, i, ++colIndex2, ::PathFindExtension(fileNameStatus._fullPathName.c_str()));
+			ListView_SetItemText(_hSelf, i, ++colIndex2, ext.data());
 		}
+
 		if (isPathColumn)
 		{
-			wchar_t dir[MAX_PATH] = { '\0' }, drive[MAX_PATH] = { '\0' };
-			_wsplitpath_s(fileNameStatus._fullPathName.c_str(), drive, MAX_PATH, dir, MAX_PATH, NULL, 0, NULL, 0);
-			wcscat_s(drive, dir);
-			ListView_SetItemText(_hSelf, i, ++colIndex2, drive);
+			ListView_SetItemText(_hSelf, i, ++colIndex2, dir.data());
 		}
 	}
 	_currentIndex = taskListInfo._currentIndex;
@@ -227,11 +215,7 @@ BufferID VerticalFileSwitcherListView::getBufferInfoFromIndex(int index, int & v
 	if (index < 0 || index >= nbItem)
 		return BUFFER_INVALID;
 
-	LVITEM item{};
-	item.mask = LVIF_PARAM;
-	item.iItem = index;
-	ListView_GetItem(_hSelf, &item);
-	const OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
+	const auto& odi = _items.at(index)._odi;
 
 	view = odi->_iView;
 	return static_cast<BufferID>(odi->_bufID);
@@ -250,52 +234,60 @@ int VerticalFileSwitcherListView::newItem(BufferID bufferID, int iView)
 void VerticalFileSwitcherListView::setItemIconStatus(BufferID bufferID)
 {
 	Buffer *buf = bufferID;
-	
-	wchar_t fn[MAX_PATH] = { '\0' };
-	wcscpy_s(fn, ::PathFindFileName(buf->getFileName()));
-	bool isExtColumn = !(NppParameters::getInstance()).getNppGUI()._fileSwitcherWithoutExtColumn;
-	bool isPathColumn = !(NppParameters::getInstance()).getNppGUI()._fileSwitcherWithoutPathColumn;
-	if (isExtColumn)
-	{
-		::PathRemoveExtension(fn);
-	}
-	LVITEM item{};
-	item.pszText = fn;
-	item.iSubItem = 0;
-	item.iImage = buf->isMonitoringOn()?3:(buf->isReadOnly()?2:(buf->isDirty()?1:0));
 
-	int nbItem = ListView_GetItemCount(_hSelf);
+	const std::wstring fullPath = buf->getFullPathName();
+	const int imageIdx = buf->isMonitoringOn() ? 3 : (buf->isReadOnly() ? 2 : (buf->isDirty() ? 1 : 0));
+
+	const bool isExtColumn = !NppParameters::getInstance().getNppGUI()._fileSwitcherWithoutExtColumn;
+	const bool isPathColumn = !NppParameters::getInstance().getNppGUI()._fileSwitcherWithoutPathColumn;
+
+	std::wstring fn;
+	std::wstring ext;
+	std::wstring dir;
 
 	int limit = kViewsLimit;
 
-	for (int i = 0 ; i < nbItem ; ++i)
+	for (size_t i = 0; i < _items.size(); ++i)
 	{
-		item.mask = LVIF_PARAM;
-		item.iItem = i;
-		ListView_GetItem(_hSelf, &item);
-		OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
-		if (odi->_bufID == bufferID)
+		if (_items[i]._odi->_bufID != bufferID)
 		{
-			odi->_fullPathName = buf->getFullPathName();
-			item.mask = LVIF_TEXT | LVIF_IMAGE;
-			ListView_SetItem(_hSelf, &item);
+			continue;
+		}
+
+		LVITEM item{};
+		item.mask = LVIF_IMAGE;
+		item.iItem = static_cast<int>(i);
+		item.iSubItem = 0;
+		item.iImage = imageIdx;
+
+		if (_items[i]._odi->_fullPathName != fullPath)
+		{
+			_items[i]._odi->_fullPathName = fullPath;
+			_items[i]._path = fullPath;
+
+			fn = _items[i].getFn(!isExtColumn);
+			item.mask |= LVIF_TEXT;
+			item.pszText = fn.data();
+
 			int colIndex = 0;
 			if (isExtColumn)
 			{
-				ListView_SetItemText(_hSelf, i, ++colIndex, ::PathFindExtension(buf->getFileName()));
-			}
-			if (isPathColumn)
-			{
-				wchar_t dir[MAX_PATH] = { '\0' }, drive[MAX_PATH] = { '\0' };
-				_wsplitpath_s(buf->getFullPathName(), drive, MAX_PATH, dir, MAX_PATH, NULL, 0, NULL, 0);
-				wcscat_s(drive, dir);
-				ListView_SetItemText(_hSelf, i, ++colIndex, drive);
+				ext = _items[i].getExt();
+				ListView_SetItemText(_hSelf, i, ++colIndex, ext.data());
 			}
 
-			if (--limit <= 0)
+			if (isPathColumn)
 			{
-				break;
+				dir = _items[i].getDir();
+				ListView_SetItemText(_hSelf, i, ++colIndex, dir.data());
 			}
+		}
+
+		ListView_SetItem(_hSelf, &item);
+
+		if (--limit <= 0)
+		{
+			break;
 		}
 	}
 }
@@ -304,24 +296,16 @@ void VerticalFileSwitcherListView::setItemColor(BufferID bufferID)
 {
 	Buffer* buf = bufferID;
 
-	LVITEM item{};
-	item.mask = LVIF_PARAM;
-
-	int nbItem = ListView_GetItemCount(_hSelf);
-
 	int limit = kViewsLimit;
 
-	for (int i = 0; i < nbItem; ++i)
+	for (size_t i = 0; i < _items.size(); ++i)
 	{
-		item.iItem = i;
-		ListView_GetItem(_hSelf, &item);
-		OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
-		if (odi->_bufID != bufferID)
+		if (_items[i]._odi->_bufID != bufferID)
 		{
 			continue;
 		}
 
-		odi->_docColor = buf->getDocColorId();
+		_items[i]._odi->_docColor = buf->getDocColorId();
 		ListView_RedrawItems(_hSelf, i, i);
 
 		if (--limit <= 0)
@@ -337,13 +321,7 @@ std::wstring VerticalFileSwitcherListView::getFullFilePath(size_t i) const
 	if (i >= nbItem)
 		return L"";
 
-	LVITEM item{};
-	item.mask = LVIF_PARAM;
-	item.iItem = static_cast<int>(i);
-	ListView_GetItem(_hSelf, &item);
-	const OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);;
-
-	return odi->_fullPathName;
+	return _items.at(i)._odi->_fullPathName;
 }
 
 int VerticalFileSwitcherListView::closeItem(BufferID bufferID, int iView)
@@ -377,68 +355,58 @@ int VerticalFileSwitcherListView::add(BufferID bufferID, int iView)
 {
 	_currentIndex = ListView_GetItemCount(_hSelf);
 	Buffer *buf = bufferID;
-	const wchar_t *fileName = buf->getFileName();
 	const NppGUI& nppGUI = NppParameters::getInstance().getNppGUI();
-	OpenedDocInfo* tl = new OpenedDocInfo(iView, 0, buf->getFullPathName(), 0, bufferID, -1);
 
-	wchar_t fn[MAX_PATH] = { '\0' };
-	wcscpy_s(fn, ::PathFindFileName(fileName));
-	bool isExtColumn = !nppGUI._fileSwitcherWithoutExtColumn;
-	bool isPathColumn = !nppGUI._fileSwitcherWithoutPathColumn;
-	if (isExtColumn)
-	{
-		::PathRemoveExtension(fn);
-	}
+	_items.emplace_back(iView, 0, buf->getFullPathName(), 0, bufferID, -1);
+	const auto& vfsItem = _items.back();
+
+	ListView_SetItemCount(_hSelf, _items.size());
+
+	const bool isExtColumn = !nppGUI._fileSwitcherWithoutExtColumn;
+	const bool isPathColumn = !nppGUI._fileSwitcherWithoutPathColumn;
+
+	std::wstring fn = vfsItem.getFn(!isExtColumn);
+	std::wstring ext = vfsItem.getExt();
+	std::wstring dir = vfsItem.getDir();
+
 	LVITEM item{};
-	item.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_PARAM | LVIF_GROUPID;
-	
-	item.pszText = fn;
+	item.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_GROUPID;
+
+	item.pszText = fn.data();
 	item.iItem = _currentIndex;
 	item.iSubItem = 0;
-	item.iImage = buf->isMonitoringOn()?3:(buf->isReadOnly()?2:(buf->isDirty()?1:0));
-	item.lParam = reinterpret_cast<LPARAM>(tl);
+	item.iImage = buf->isMonitoringOn() ? 3 : (buf->isReadOnly() ? 2 : (buf->isDirty() ? 1 : 0));
 	item.iGroupId = iView;
 	ListView_InsertItem(_hSelf, &item);
+
 	int colIndex = 0;
 	if (isExtColumn)
 	{
-		ListView_SetItemText(_hSelf, _currentIndex, ++colIndex, ::PathFindExtension(fileName));
+		ListView_SetItemText(_hSelf, _currentIndex, ++colIndex, ext.data());
 	}
+
 	if (isPathColumn)
 	{
-		wchar_t dir[MAX_PATH] = { '\0' }, drive[MAX_PATH] = { '\0' };
-		_wsplitpath_s(buf->getFullPathName(), drive, MAX_PATH, dir, MAX_PATH, NULL, 0, NULL, 0);
-		wcscat_s(drive, dir);
-		ListView_SetItemText(_hSelf, _currentIndex, ++colIndex, drive);
+		ListView_SetItemText(_hSelf, _currentIndex, ++colIndex, dir.data());
 	}
+
 	selectCurrentItem();
 
 	return _currentIndex;
 }
 
 
-void VerticalFileSwitcherListView::remove(int index, bool removeFromListview)
+void VerticalFileSwitcherListView::remove(int index)
 {
-	LVITEM item{};
-	item.mask = LVIF_PARAM;
-	item.iItem = index;
-	ListView_GetItem(_hSelf, &item);
-	OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
-	delete odi;
-	
-	if (removeFromListview)
-		ListView_DeleteItem(_hSelf, index);
+	ListView_DeleteItem(_hSelf, index);
+	_items.erase(_items.begin() + index);
+	ListView_SetItemCount(_hSelf, _items.size());
 }
 
 void VerticalFileSwitcherListView::removeAll()
 {
-	int nbItem = ListView_GetItemCount(_hSelf);
-	
-	for (int i = nbItem - 1; i >= 0 ; --i)
-	{
-		remove(i, false);
-	}
 	ListView_DeleteAllItems(_hSelf);
+	_items.clear();
 
 	HWND colHeader = reinterpret_cast<HWND>(SendMessage(_hSelf, LVM_GETHEADER, 0, 0));
 	const auto columnCount = static_cast<int>(::SendMessage(colHeader, HDM_GETITEMCOUNT, 0, 0));
@@ -451,23 +419,13 @@ void VerticalFileSwitcherListView::removeAll()
 
 int VerticalFileSwitcherListView::find(BufferID bufferID, int iView) const
 {
-	LVITEM item{};
-	bool found = false;
-	int nbItem = ListView_GetItemCount(_hSelf);
-	int i = 0;
-	for (; i < nbItem ; ++i)
-	{
-		item.mask = LVIF_PARAM;
-		item.iItem = i;
-		ListView_GetItem(_hSelf, &item);
-		const OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
-		if (odi->_bufID == bufferID && odi->_iView == iView)
+	const auto it = std::find_if(_items.begin(), _items.end(),
+		[bufferID, iView](const auto& item)
 		{
-			found =  true;
-			break;
-		}
-	}
-	return (found?i:-1);	
+			return item._odi->_bufID == bufferID && item._odi->_iView == iView;
+		});
+
+	return (it != _items.end()) ? static_cast<int>(std::distance(_items.begin(), it)) : -1;
 }
 
 void VerticalFileSwitcherListView::insertColumn(const wchar_t *name, int width, int index)
@@ -516,7 +474,6 @@ void VerticalFileSwitcherListView::resizeColumns(int totalWidth)
 std::vector<BufferViewInfo> VerticalFileSwitcherListView::getSelectedFiles(bool reverse) const
 {
 	std::vector<BufferViewInfo> files;
-	LVITEM item{};
 	int nbItem = ListView_GetItemCount(_hSelf);
 	for (int i = 0; i < nbItem; ++i)
 	{
@@ -524,11 +481,7 @@ std::vector<BufferViewInfo> VerticalFileSwitcherListView::getSelectedFiles(bool 
 		bool isChosen = reverse?isSelected != LVIS_SELECTED:isSelected == LVIS_SELECTED;
 		if (isChosen)
 		{
-			item.mask = LVIF_PARAM;
-			item.iItem = i;
-			ListView_GetItem(_hSelf, &item);
-
-			const OpenedDocInfo* odi = reinterpret_cast<OpenedDocInfo*>(item.lParam);
+			const auto& odi = _items.at(i)._odi;
 			files.emplace_back(static_cast<BufferID>(odi->_bufID), odi->_iView);
 		}
 	}

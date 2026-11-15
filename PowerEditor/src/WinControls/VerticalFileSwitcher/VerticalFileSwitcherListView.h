@@ -21,9 +21,11 @@
 
 #include <commctrl.h>
 
+#include <concepts>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Buffer.h"
@@ -90,11 +92,7 @@ public:
 	}
 
 	OpenedDocInfo* getOpenedDocInfo(size_t index) const {
-		LVITEM item{};
-		item.mask = LVIF_PARAM;
-		item.iItem = static_cast<int>(index);
-		ListView_GetItem(_hSelf, &item);
-		return reinterpret_cast<OpenedDocInfo*>(item.lParam);
+		return _items.at(index)._odi.get();
 	}
 
 	int getDocColor(size_t index) const {
@@ -102,6 +100,52 @@ public:
 	}
 
 protected:
+	struct VFSItem
+	{
+		VFSItem() = delete;
+		template<class... Args>
+			requires std::constructible_from<OpenedDocInfo, Args&&...>
+		explicit VFSItem(Args&&... args)
+			: _odi(std::make_unique<OpenedDocInfo>(std::forward<Args>(args)...))
+			, _path(std::filesystem::path(_odi->_fullPathName))
+		{}
+
+		~VFSItem() = default;
+
+		VFSItem(const VFSItem&) = delete;
+		VFSItem& operator=(const VFSItem&) = delete;
+
+		VFSItem(VFSItem&&) noexcept = default;
+		VFSItem& operator=(VFSItem&&) noexcept = default;
+
+		std::unique_ptr<OpenedDocInfo> _odi;
+		std::filesystem::path _path;
+
+		std::wstring getFn(bool includeExt = false) const {
+			return includeExt ? _path.filename().wstring() : _path.stem().wstring();
+		}
+
+		std::wstring getExt() const {
+			return _path.has_extension() ? _path.extension().wstring() : L"";
+		}
+
+		std::wstring getDir() const {
+			if (!_path.has_parent_path())
+			{
+				return L"";
+			}
+
+			std::wstring dir = _path.parent_path().wstring();
+			if (!dir.empty() && dir.back() != L'\\' && dir.back() != L'/')
+			{
+				dir += L'\\';
+			}
+
+			return dir;
+		}
+	};
+
+	std::vector<VFSItem> _items;
 	HIMAGELIST _hImaLst = nullptr;
 
 	int _currentIndex = 0;
@@ -111,7 +155,7 @@ protected:
 
 	int find(BufferID bufferID, int iView) const;
 	int add(BufferID bufferID, int iView);
-	void remove(int index, bool removeFromListview = true);
+	void remove(int index);
 	void removeAll();
 	void selectCurrentItem() const {
 		ListView_SetItemState(_hSelf, _currentIndex, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);

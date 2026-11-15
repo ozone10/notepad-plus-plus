@@ -21,9 +21,11 @@
 
 #include <commctrl.h>
 
+#include <concepts>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Buffer.h"
@@ -89,7 +91,61 @@ public:
 		NppDarkMode::setDarkTooltips(_hSelf, NppDarkMode::ToolTipsType::listview);
 	}
 
+	TaskLstFnStatus* getTlfs(size_t index) {
+		return _items.at(index)._tlfs.get();
+	}
+
+	int getDocColor(size_t index) const {
+		return _items.at(index)._tlfs->_docColor;
+	}
+
 protected:
+	struct VFSItem
+	{
+		VFSItem() = delete;
+		template<class... Args>
+			requires std::constructible_from<TaskLstFnStatus, Args&&...>
+		explicit VFSItem(Args&&... args)
+			: _tlfs(std::make_unique<TaskLstFnStatus>(std::forward<Args>(args)...))
+			, _path(std::filesystem::path(_tlfs->_fn))
+		{}
+
+		~VFSItem() = default;
+
+		VFSItem(const VFSItem&) = delete;
+		VFSItem& operator=(const VFSItem&) = delete;
+
+		VFSItem(VFSItem&&) noexcept = default;
+		VFSItem& operator=(VFSItem&&) noexcept = default;
+
+		std::unique_ptr<TaskLstFnStatus> _tlfs;
+		std::filesystem::path _path;
+
+		std::wstring getFn(bool includeExt = false) const {
+			return includeExt ? _path.filename().wstring() : _path.stem().wstring();
+		}
+
+		std::wstring getExt() const {
+			return _path.has_extension() ? _path.extension().wstring() : L"";
+		}
+
+		std::wstring getDir() const {
+			if (!_path.has_parent_path())
+			{
+				return L"";
+			}
+
+			std::wstring dir = _path.parent_path().wstring();
+			if (!dir.empty() && dir.back() != L'\\' && dir.back() != L'/')
+			{
+				dir += L'\\';
+			}
+
+			return dir;
+		}
+	};
+
+	std::vector<VFSItem> _items;
 	HIMAGELIST _hImaLst = nullptr;
 
 	int _currentIndex = 0;
@@ -99,7 +155,7 @@ protected:
 
 	int find(BufferID bufferID, int iView) const;
 	int add(BufferID bufferID, int iView);
-	void remove(int index, bool removeFromListview = true);
+	void remove(int index);
 	void removeAll();
 	void selectCurrentItem() const {
 		ListView_SetItemState(_hSelf, _currentIndex, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);

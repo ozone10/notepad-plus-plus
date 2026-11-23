@@ -35,8 +35,8 @@
     <Rule Id="C26430" Action="Hidden" />
     <Rule Id="C26431" Action="Warning" />
     <Rule Id="C26432" Action="None" />
-    <Rule Id="C26433" Action="Hidden" />
-    <Rule Id="C26434" Action="Hidden" />
+    <Rule Id="C26433" Action="Warning" />
+    <Rule Id="C26434" Action="Warning" />
     <Rule Id="C26435" Action="Warning" />
     <Rule Id="C26436" Action="Hidden" />  <!-- The type 'symbol' with a virtual function needs either public virtual or protected non-virtual destructor -->
     <Rule Id="C26437" Action="Warning" />

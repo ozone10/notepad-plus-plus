@@ -15,11 +15,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+#include "DockingSplitter.h"
+
 #include <windows.h>
 
 #include <stdexcept>
 
-#include "DockingSplitter.h"
 #include "NppDarkMode.h"
 #include "Window.h"
 #include "dockingResource.h"
@@ -180,7 +181,3 @@ LRESULT DockingSplitter::runProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 	}
 	return ::DefWindowProc(hwnd, message, wParam, lParam);
 }
-
-
-
-

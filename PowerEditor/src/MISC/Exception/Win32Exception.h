@@ -20,10 +20,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
 #pragma once
 
-#include <exception>
 #include <windows.h>
+
+#include <exception>
 
 typedef const void* ExceptionAddress; // OK on Win32 platform
 
@@ -32,7 +34,7 @@ class Win32Exception : public std::exception
 public:
     static void			installHandler();
     static void			removeHandler();
-    virtual const char* what()  const throw() { return _event;    }
+    const char* what() const noexcept override { return _event;    }
     ExceptionAddress	where() const         { return _location; }
     unsigned int		code()  const         { return _code;     }
 	EXCEPTION_POINTERS* info()  const         { return _info;     }

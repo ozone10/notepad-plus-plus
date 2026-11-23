@@ -57,12 +57,12 @@ public:
     virtual ~HandleUniversalDetector()
     {}
 
-    virtual void Report(const char* charset)
+    void Report(const char* charset) override
     {
         m_charset = charset;
     }
 
-    virtual void Reset()
+    void Reset() override
     {
         nsUniversalDetector::Reset();
         m_charset = "";

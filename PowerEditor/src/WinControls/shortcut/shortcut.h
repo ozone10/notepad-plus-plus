@@ -17,14 +17,20 @@
 
 #pragma once
 
-#include "shortcutRc.h"
-#include "Scintilla.h"
-#include "StaticDialog.h"
-#include "Common.h"
-#include "menuCmdID.h"
+#include <windows.h>
 
-constexpr int menuItemStrLenMax = 64 + 64;	// Add 64 "units" more for being compatible to the current localization file. See:
-											// https://github.com/notepad-plus-plus/notepad-plus-plus/issues/13556#issuecomment-1518197329
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include <Scintilla.h>
+
+#include "Common.h"
+#include "StaticDialog.h"
+#include "shortcutRc.h"
+
+inline constexpr int menuItemStrLenMax = 64 + 64;	// Add 64 "units" more for being compatible to the current localization file. See:
+													// https://github.com/notepad-plus-plus/notepad-plus-plus/issues/13556#issuecomment-1518197329
 
 class NppParameters;
 
@@ -94,7 +100,7 @@ public:
 		_canModifyName = sc._canModifyName;
 	}
 
-	BYTE getAcceleratorModifiers() {
+	BYTE getAcceleratorModifiers() const {
 		return static_cast<BYTE>( FVIRTKEY | (_keyCombo._isCtrl?FCONTROL:0) | (_keyCombo._isAlt?FALT:0) | (_keyCombo._isShift?FSHIFT:0) );
 	}
 
@@ -327,7 +333,7 @@ class PluginCmdShortcut : public CommandShortcut {
 //friend class NppParameters;
 public:
 	PluginCmdShortcut(const Shortcut& sc, int id, const char*moduleName, unsigned short internalID) :
-		CommandShortcut(sc, id), _id(id), _moduleName(moduleName), _internalID(internalID) {}
+		CommandShortcut(sc, id), _moduleName(moduleName), _internalID(internalID) {}
 	bool isValid() const override {
 		if (!Shortcut::isValid())
 			return false;
@@ -337,10 +343,8 @@ public:
 	}
 	const char* getModuleName() const { return _moduleName.c_str(); }
 	int getInternalID() const { return _internalID; }
-	unsigned long getID() const { return _id; }
 
 private :
-	unsigned long _id;
 	std::string _moduleName;
 	int _internalID;
 };

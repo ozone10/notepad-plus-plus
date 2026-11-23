@@ -97,7 +97,6 @@ ifeq ($(CXX),clang++)
               -Wno-exit-time-destructors \
               -Wno-global-constructors \
               -Wno-nested-anon-types \
-              -Wno-overloaded-virtual \
               -Wno-padded \
               -Wno-pragma-pack \
               -Wno-reserved-id-macro \
@@ -111,7 +110,6 @@ ifeq ($(CXX),clang++)
               -Wno-weak-vtables
 else
   CXXFLAGS += -Wno-cast-function-type \
-              -Wno-overloaded-virtual \
               -Wno-system-headers
 endif
 

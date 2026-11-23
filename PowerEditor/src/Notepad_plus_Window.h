@@ -13,11 +13,21 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 #pragma once
+
+#include <windows.h>
+
+#include <string>
+
 #include "Notepad_plus.h"
+#include "Parameters.h"
+#include "Window.h"
+#include "dpiManagerV2.h"
+#include "resource.h"
 
-constexpr int splitterSize = 8;
-
+inline constexpr int splitterSize = 8;
 
 class Notepad_plus_Window : public Window
 {
@@ -56,7 +66,7 @@ public:
 		return _className;
 	}
 
-	HICON getAbsentIcoHandle() {
+	HICON getAbsentIcoHandle() const {
 		return _hIconAbsent;
 	}
 
@@ -117,4 +127,6 @@ private:
 	HICON _hIconAbsent = nullptr;
 
 	bool _isClipboardListener = false;
+
+	using Window::init;
 };
